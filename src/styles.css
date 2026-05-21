@@ -347,6 +347,26 @@ body[data-theme="dark"] .status-regular-l3 { color: #f3d27d; background: rgba(18
 body[data-theme="dark"] .status-inservivel { color: #ffb2ad; background: rgba(255,26,18,.22); }
 body[data-theme="dark"] .status-ruina { color: #efefef; background: rgba(143,143,143,.32); }
 
+
+.technical-table input,
+.technical-table select {
+  min-width: 92px;
+  padding: 8px 9px;
+  border-radius: 10px;
+}
+.technical-table td:nth-child(3) input,
+.technical-table td:nth-child(9) input {
+  min-width: 170px;
+}
+.technical-table th,
+.technical-table td {
+  white-space: nowrap;
+}
+input[readonly] {
+  opacity: .82;
+  cursor: default;
+}
+
 @media (max-width: 1180px) {
   .hero { grid-template-columns: 1fr; }
   .track-management, .action-plan-card, .split { grid-template-columns: 1fr; }

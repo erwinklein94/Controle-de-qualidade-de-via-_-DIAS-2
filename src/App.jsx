@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   BookOpen,
@@ -17,6 +18,7 @@ import {
   Save,
   Sun,
   Train,
+  TrendingUp,
   Trash2,
   X
 } from 'lucide-react'
@@ -159,10 +161,42 @@ const DARK_CHART_COLORS = {
   text: '#d7ebff'
 }
 
+
+const FISSURE_CLASSES = [
+  { key: 'nao_marcado', label: 'Não marcado', short: 'NM', severity: 0, description: 'Sem medição suficiente para enquadramento.' },
+  { key: 'ca', label: 'CA', short: 'CA', severity: 1, description: 'Fissura muito leve, monitorada por abertura e comprimento.' },
+  { key: 'cb', label: 'CB', short: 'CB', severity: 2, description: 'Fissura leve, com evolução que deve ser comparada por inspeção.' },
+  { key: 'cc', label: 'CC', short: 'CC', severity: 3, description: 'Fissura moderada; acompanhar por lado e região do dormente.' },
+  { key: 'cd', label: 'CD', short: 'CD', severity: 4, description: 'Fissura forte, entra na carteira de atenção.' },
+  { key: 'ce', label: 'CE', short: 'CE', severity: 5, description: 'Fissura muito forte, próxima de condição crítica.' },
+  { key: 'ruina', label: 'Ruína por fissura', short: 'RU', severity: 6, description: 'Abertura severa conforme regra de vídeo/fissura da planilha.' }
+]
+
+const FISSURE_CLASS_MAP = Object.fromEntries(FISSURE_CLASSES.map((item) => [item.key, item]))
+const FISSURE_CLASS_KEYS = FISSURE_CLASSES.map((item) => item.key)
+
+const DEFAULT_HARDSCAN_LIMITS = {
+  attention: 300,
+  critical: 220
+}
+
 const today = () => new Date().toISOString().slice(0, 10)
 const parseDate = (date) => new Date(`${date || today()}T00:00:00`)
 const formatDate = (date) => date ? date.split('-').reverse().join('/') : ''
 const daysBetween = (start, end) => Math.max(1, Math.round((parseDate(end) - parseDate(start)) / 86400000))
+
+
+const toNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const normalized = String(value).replace(',', '.').replace(/[^0-9.-]/g, '')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const formatNumber = (value, digits = 1) => {
+  const parsed = toNumber(value)
+  return parsed === null ? '-' : parsed.toLocaleString('pt-BR', { maximumFractionDigits: digits })
+}
 
 function uid(prefix = 'id') {
   return `${prefix}-${Math.random().toString(36).slice(2)}-${Date.now()}`
@@ -204,6 +238,36 @@ function createInspection(sleepers, date = today(), notes = '', locked = false) 
   return { id: uid('insp'), date, notes, conditions, locked }
 }
 
+
+function normalizeHardScanRecords(records) {
+  return Array.isArray(records) ? records.map((record) => ({
+    id: record.id || uid('hs'),
+    date: record.date || today(),
+    sleeper: record.sleeper || '',
+    equipment: record.equipment || '',
+    value1: record.value1 || '',
+    value2: record.value2 || '',
+    value3: record.value3 || '',
+    value4: record.value4 || '',
+    average: record.average || '',
+    notes: record.notes || ''
+  })) : []
+}
+
+function normalizeFissureRecords(records) {
+  return Array.isArray(records) ? records.map((record) => ({
+    id: record.id || uid('fis'),
+    date: record.date || today(),
+    sleeper: record.sleeper || '',
+    side: record.side || '',
+    classKey: FISSURE_CLASS_MAP[record.classKey] ? record.classKey : 'nao_marcado',
+    lateralLength: record.lateralLength || '',
+    superiorLength: record.superiorLength || '',
+    opening: record.opening || '',
+    notes: record.notes || ''
+  })) : []
+}
+
 function createTrack(name = 'Novo trecho', count = 0) {
   const sleepers = buildSleepers(count)
   return {
@@ -211,6 +275,8 @@ function createTrack(name = 'Novo trecho', count = 0) {
     name,
     malha: '',
     equipment: '',
+    pointCode: '',
+    direction: '',
     responsible: '',
     kmStart: '',
     kmEnd: '',
@@ -221,9 +287,15 @@ function createTrack(name = 'Novo trecho', count = 0) {
     jointSurroundingGood: '',
     hasGaugeLoss: '',
     hasSupportLoss: '',
+    prospectionYear: '',
+    prospectionCount: '',
+    inservivelProspection: '',
+    referenceCriticalRate: '',
     sleeperCount: count || '',
     sleepers,
     inspections: sleepers.length ? [createInspection(sleepers)] : [],
+    hardScanRecords: [],
+    fissureRecords: [],
     notes: ''
   }
 }
@@ -247,7 +319,9 @@ function ensureTrackShape(track, index = 0) {
         sleeper.id,
         normalizeStatus(inspection.conditions?.[sleeper.id] || DEFAULT_STATUS)
       ]))
-    }))
+    })),
+    hardScanRecords: normalizeHardScanRecords(track?.hardScanRecords),
+    fissureRecords: normalizeFissureRecords(track?.fissureRecords)
   }
 }
 
@@ -462,6 +536,82 @@ function analyzeTrack(track) {
     sleeperTrend,
     worstSleepers: sleeperTrend.filter((item) => item.riskScore > 0).slice(0, 10)
   }
+}
+
+
+function getHardScanAverage(record) {
+  const manualAverage = toNumber(record.average)
+  if (manualAverage !== null) return manualAverage
+  const values = [record.value1, record.value2, record.value3, record.value4].map(toNumber).filter((value) => value !== null)
+  return values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)) : null
+}
+
+function analyzeHardScan(records = []) {
+  const rows = normalizeHardScanRecords(records).map((record) => ({ ...record, media: getHardScanAverage(record) })).filter((record) => record.media !== null)
+  const values = rows.map((row) => row.media)
+  const average = values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)) : null
+  const weakPoints = rows.filter((row) => row.media <= DEFAULT_HARDSCAN_LIMITS.critical).length
+  const attentionPoints = rows.filter((row) => row.media > DEFAULT_HARDSCAN_LIMITS.critical && row.media <= DEFAULT_HARDSCAN_LIMITS.attention).length
+  const chartData = rows.slice(-30).map((row, index) => ({ label: row.sleeper ? `D${row.sleeper}` : `Amostra ${index + 1}`, data: formatDate(row.date), media: row.media, equipamento: row.equipment || '-' }))
+  return { count: rows.length, rows, average, weakPoints, attentionPoints, chartData }
+}
+
+function classifyFissure(record) {
+  const opening = toNumber(record.opening) || 0
+  const lateral = toNumber(record.lateralLength) || 0
+  const superior = toNumber(record.superiorLength) || 0
+  const longest = Math.max(lateral, superior)
+  if (opening > 3 || (longest >= 2800 && opening >= 1)) return 'ruina'
+  if (opening > 1.8 || (longest >= 2800 && opening >= 0.5)) return 'ce'
+  if (opening > 0.8 || (longest >= 900 && opening >= 0.5)) return 'cd'
+  if (opening > 0.5 || (longest >= 2800 && opening >= 0.25)) return 'cc'
+  if (opening > 0.25 || (longest >= 900 && opening >= 0.05)) return 'cb'
+  if (opening > 0.05 || longest > 0) return 'ca'
+  return 'nao_marcado'
+}
+
+function analyzeFissures(records = []) {
+  const rows = normalizeFissureRecords(records).map((record) => {
+    const autoClass = classifyFissure(record)
+    const classKey = record.classKey && record.classKey !== 'nao_marcado' ? record.classKey : autoClass
+    return { ...record, classKey, classLabel: FISSURE_CLASS_MAP[classKey].label, severity: FISSURE_CLASS_MAP[classKey].severity, openingNumber: toNumber(record.opening) || 0, lateralNumber: toNumber(record.lateralLength) || 0, superiorNumber: toNumber(record.superiorLength) || 0 }
+  })
+  const counts = Object.fromEntries(FISSURE_CLASS_KEYS.map((key) => [key, 0]))
+  rows.forEach((row) => { counts[row.classKey] += 1 })
+  const chartData = FISSURE_CLASSES.map((item) => ({ classe: item.label, total: counts[item.key], severidade: item.severity }))
+  const criticalCount = rows.filter((row) => row.severity >= 4).length
+  return { count: rows.length, rows, counts, chartData, criticalCount }
+}
+
+function getProspectionStats(track) {
+  const prospected = toNumber(track?.prospectionCount) || 0
+  const inserviveis = toNumber(track?.inservivelProspection) || 0
+  const referenceRate = toNumber(track?.referenceCriticalRate)
+  const taxa = prospected ? Number(((inserviveis / prospected) * 100).toFixed(1)) : null
+  return { prospected, inserviveis, taxa, referenceRate }
+}
+
+function aggregateTechnicalData(tracks = []) {
+  const prospectionRows = tracks.map((track) => {
+    const stats = getProspectionStats(track)
+    return { trackId: track.id, trackName: track.name || 'Novo trecho', prospected: stats.prospected, inserviveis: stats.inserviveis, taxa: stats.taxa || 0, referenceRate: stats.referenceRate || 0 }
+  }).filter((row) => row.prospected || row.inserviveis)
+  const hardScanRows = tracks.map((track) => {
+    const analysis = analyzeHardScan(track.hardScanRecords)
+    return { trackId: track.id, trackName: track.name || 'Novo trecho', hardScanMedio: analysis.average || 0, pontosFracos: analysis.weakPoints, pontosAtencao: analysis.attentionPoints, total: analysis.count }
+  }).filter((row) => row.total)
+  const fissureCounts = Object.fromEntries(FISSURE_CLASS_KEYS.map((key) => [key, 0]))
+  tracks.forEach((track) => {
+    const analysis = analyzeFissures(track.fissureRecords)
+    FISSURE_CLASS_KEYS.forEach((key) => { fissureCounts[key] += analysis.counts[key] || 0 })
+  })
+  const fissureRows = FISSURE_CLASSES.map((item) => ({ classe: item.label, total: fissureCounts[item.key], severidade: item.severity }))
+  const allHardScanValues = tracks.flatMap((track) => analyzeHardScan(track.hardScanRecords).rows.map((row) => row.media))
+  const hardScanAverage = allHardScanValues.length ? Number((allHardScanValues.reduce((sum, value) => sum + value, 0) / allHardScanValues.length).toFixed(1)) : null
+  const prospectionTotal = prospectionRows.reduce((sum, row) => sum + row.prospected, 0)
+  const inservivelTotal = prospectionRows.reduce((sum, row) => sum + row.inserviveis, 0)
+  const fissureCritical = fissureRows.filter((row) => row.severidade >= 4).reduce((sum, row) => sum + row.total, 0)
+  return { prospectionRows, hardScanRows, fissureRows, prospectionTotal, inservivelTotal, prospectionRate: prospectionTotal ? Number(((inservivelTotal / prospectionTotal) * 100).toFixed(1)) : null, hardScanAverage, fissureCritical }
 }
 
 function getActionPlan(track, analytics) {
@@ -761,6 +911,11 @@ export default function App() {
     return acc
   }, { Bom: 0, Regular: 0, Inservível: 0, Ruína: 0, clusters: 0, pinturasUma: 0, pinturasDuas: 0, regularesAdjacentes: 0, desempenhoTotal: 0, count: 0 }), [dashboardRows])
   const dashboardScore = dashboardTotals.count ? Math.round(dashboardTotals.desempenhoTotal / dashboardTotals.count) : 0
+  const dashboardTracks = useMemo(() => dashboardTrack === 'all' ? tracks : tracks.filter((track) => track.id === dashboardTrack), [tracks, dashboardTrack])
+  const dashboardTechnical = useMemo(() => aggregateTechnicalData(dashboardTracks), [dashboardTracks])
+  const selectedHardScan = useMemo(() => analyzeHardScan(selectedTrack?.hardScanRecords || []), [selectedTrack])
+  const selectedFissures = useMemo(() => analyzeFissures(selectedTrack?.fissureRecords || []), [selectedTrack])
+  const selectedProspection = useMemo(() => getProspectionStats(selectedTrack), [selectedTrack])
 
   function updateTrack(patch) {
     setTracks((current) => current.map((track) => track.id === selectedTrack.id ? { ...track, ...patch } : track))
@@ -841,6 +996,32 @@ export default function App() {
     ))
   }
 
+  function addHardScanRecord() {
+    const nextRecord = { id: uid('hs'), date: today(), sleeper: '', equipment: selectedTrack.equipment || selectedTrack.name || '', value1: '', value2: '', value3: '', value4: '', average: '', notes: '' }
+    updateTrack({ hardScanRecords: [...(selectedTrack.hardScanRecords || []), nextRecord] })
+  }
+
+  function updateHardScanRecord(recordId, patch) {
+    updateTrack({ hardScanRecords: (selectedTrack.hardScanRecords || []).map((record) => record.id === recordId ? { ...record, ...patch } : record) })
+  }
+
+  function deleteHardScanRecord(recordId) {
+    updateTrack({ hardScanRecords: (selectedTrack.hardScanRecords || []).filter((record) => record.id !== recordId) })
+  }
+
+  function addFissureRecord() {
+    const nextRecord = { id: uid('fis'), date: today(), sleeper: '', side: '', classKey: 'nao_marcado', lateralLength: '', superiorLength: '', opening: '', notes: '' }
+    updateTrack({ fissureRecords: [...(selectedTrack.fissureRecords || []), nextRecord] })
+  }
+
+  function updateFissureRecord(recordId, patch) {
+    updateTrack({ fissureRecords: (selectedTrack.fissureRecords || []).map((record) => record.id === recordId ? { ...record, ...patch } : record) })
+  }
+
+  function deleteFissureRecord(recordId) {
+    updateTrack({ fissureRecords: (selectedTrack.fissureRecords || []).filter((record) => record.id !== recordId) })
+  }
+
   function saveData() {
     const timestamp = new Date().toLocaleString('pt-BR')
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ tracks, selectedTrackId, savedAt: timestamp }))
@@ -880,6 +1061,12 @@ export default function App() {
         <table border="1"><tr><th>Trecho</th><th>Equipamento</th><th>Data</th>${statusHeaders}<th>Desempenho</th><th>% Crítico</th><th>Malhas</th><th>Maior malha</th><th>1 pintura</th><th>2 pinturas</th><th>Regulares adj.</th><th>Observação</th></tr>${rows}</table>
         <h2>Ranking de trechos</h2>
         <table border="1"><tr><th>#</th><th>Trecho</th><th>Equipamento</th><th>Classificação</th><th>Desempenho</th><th>Inservíveis</th><th>Ruína</th><th>Malhas</th><th>Risco</th></tr>${rankingRows}</table>
+        <h2>Prospecção / referência Ferronorte</h2>
+        <table border="1"><tr><th>Trecho</th><th>Prospectados</th><th>Inservíveis</th><th>Taxa calculada</th><th>Taxa referência</th></tr>${dashboardTechnical.prospectionRows.map((row) => `<tr><td>${escapeExcel(row.trackName)}</td><td>${row.prospected}</td><td>${row.inserviveis}</td><td>${row.taxa}%</td><td>${row.referenceRate}%</td></tr>`).join('')}</table>
+        <h2>HardScan por trecho</h2>
+        <table border="1"><tr><th>Trecho</th><th>Média</th><th>Pontos atenção</th><th>Pontos fracos</th><th>Amostras</th></tr>${dashboardTechnical.hardScanRows.map((row) => `<tr><td>${escapeExcel(row.trackName)}</td><td>${row.hardScanMedio}</td><td>${row.pontosAtencao}</td><td>${row.pontosFracos}</td><td>${row.total}</td></tr>`).join('')}</table>
+        <h2>Fissuras por classe</h2>
+        <table border="1"><tr><th>Classe</th><th>Total</th></tr>${dashboardTechnical.fissureRows.map((row) => `<tr><td>${escapeExcel(row.classe)}</td><td>${row.total}</td></tr>`).join('')}</table>
       </body></html>`
     const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -934,6 +1121,7 @@ export default function App() {
   const tabItems = [
     { id: 'trechos', label: 'Registro de trechos', icon: Train },
     { id: 'inspecao', label: 'Inspeção', icon: ClipboardList },
+    { id: 'ensaios', label: 'Ensaios e fissuras', icon: Activity },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'procedimentos', label: 'Procedimentos', icon: BookOpen }
   ]
@@ -1026,13 +1214,20 @@ export default function App() {
               <div className="track-form">
                 <div className="form-grid form-grid-expanded">
                   <label>Nome do trecho<input value={selectedTrack.name} onChange={(e) => updateTrack({ name: e.target.value })} /></label>
+                  <label>Ponto padrão<input value={selectedTrack.pointCode || ''} onChange={(e) => updateTrack({ pointCode: e.target.value })} placeholder="Ex.: P1, 04, km 169" /></label>
+                  <label>Equipamento / segmento<input value={selectedTrack.equipment || ''} onChange={(e) => updateTrack({ equipment: e.target.value })} placeholder="Ex.: 031+470 ao 031+570" /></label>
                   <label>Responsável / equipe<input value={selectedTrack.responsible || ''} onChange={(e) => updateTrack({ responsible: e.target.value })} /></label>
-                  <label>Malha<select value={selectedTrack.malha || ''} onChange={(e) => updateTrack({ malha: e.target.value })}><option value="">Selecione</option><option>Malha Central</option><option>Ferronorte</option><option>Malha Paulista</option><option>Outra</option></select></label>
+                  <label>Malha<select value={selectedTrack.malha || ''} onChange={(e) => updateTrack({ malha: e.target.value })}><option value="">Selecione</option><option>Ferronorte</option><option>Malha Central</option><option>Malha Paulista</option><option>Outra</option></select></label>
                   <label>Material<select value={selectedTrack.sleeperMaterial || ''} onChange={(e) => updateTrack({ sleeperMaterial: e.target.value })}><option value="">Selecione</option><option value="concreto">Concreto</option><option value="madeira">Madeira</option><option value="aco">Aço</option><option value="polimero">Polímero</option></select></label>
                   <label>Traçado<select value={selectedTrack.geometryType || ''} onChange={(e) => updateTrack({ geometryType: e.target.value })}><option value="">Selecione</option><option value="tangente">Tangente</option><option value="curva">Curva</option></select></label>
+                  <label>Sentido / lado<input value={selectedTrack.direction || ''} onChange={(e) => updateTrack({ direction: e.target.value })} placeholder="Ex.: Carregado curva direita / Sent. crescente" /></label>
                   <label>Classe<input value={selectedTrack.trackClass || ''} onChange={(e) => updateTrack({ trackClass: e.target.value })} placeholder="Classe da via" /></label>
                   <label>KM inicial<input value={selectedTrack.kmStart || ''} onChange={(e) => updateTrack({ kmStart: e.target.value })} /></label>
                   <label>KM final<input value={selectedTrack.kmEnd || ''} onChange={(e) => updateTrack({ kmEnd: e.target.value })} /></label>
+                  <label>Ano prospecção<input value={selectedTrack.prospectionYear || ''} onChange={(e) => updateTrack({ prospectionYear: e.target.value })} placeholder="2024 ou 2025" /></label>
+                  <label>Dormentes prospectados<input type="number" min="0" value={selectedTrack.prospectionCount || ''} onChange={(e) => updateTrack({ prospectionCount: e.target.value })} /></label>
+                  <label>Inservíveis na prospecção<input type="number" min="0" value={selectedTrack.inservivelProspection || ''} onChange={(e) => updateTrack({ inservivelProspection: e.target.value })} /></label>
+                  <label>Taxa ref. inservíveis (%)<input type="number" min="0" step="0.1" value={selectedTrack.referenceCriticalRate || ''} onChange={(e) => updateTrack({ referenceCriticalRate: e.target.value })} /></label>
                   <label>Quantidade de dormentes<span className="input-with-button"><input type="number" min="1" max="300" value={selectedTrack.sleeperCount} onChange={(e) => updateTrack({ sleeperCount: e.target.value })} /><button onClick={applySleeperCount}>Aplicar</button></span></label>
                 </div>
                 <label className="full-label compact-notes">Observações do local<textarea rows={2} placeholder="Observações rápidas do local" value={selectedTrack.notes || ''} onChange={(e) => updateTrack({ notes: e.target.value })} /></label>
@@ -1117,6 +1312,58 @@ export default function App() {
           </>
         )}
 
+        {activeTab === 'ensaios' && (
+          <section className="dashboard-report report-section">
+            <section className="panel no-print dashboard-controls">
+              <div>
+                <span className="section-kicker">Ensaios complementares</span>
+                <h2>HardScan e monitoramento de fissuras</h2>
+                <p className="muted">Campos inspirados nas abas HardScan, Prospecção por vídeo e Monitoramento Fissura da planilha. Eles complementam a grade de siglas sem substituir o padrão atual.</p>
+              </div>
+              <div className="dashboard-filter-grid">
+                <label>Trecho<select value={selectedTrack.id} onChange={(e) => setSelectedTrackId(e.target.value)}>{tracks.map((track) => <option key={track.id} value={track.id}>{track.name || 'Novo trecho'}</option>)}</select></label>
+                <label>Taxa prospecção calculada<input readOnly value={selectedProspection.taxa === null ? 'Sem dados' : `${selectedProspection.taxa}%`} /></label>
+                <label>HardScan médio<input readOnly value={selectedHardScan.average === null ? 'Sem dados' : selectedHardScan.average} /></label>
+                <label>Fissuras críticas<input readOnly value={selectedFissures.criticalCount} /></label>
+              </div>
+            </section>
+
+            <section className="metrics">
+              <Metric icon={<TrendingUp />} title="Taxa de prospecção" value={selectedProspection.taxa === null ? '-' : `${selectedProspection.taxa}%`} detail="Inservíveis / prospectados do trecho" />
+              <Metric icon={<BarChart3 />} title="HardScan médio" value={selectedHardScan.average === null ? '-' : selectedHardScan.average} detail={`${selectedHardScan.count} amostras cadastradas`} />
+              <Metric icon={<AlertTriangle />} title="Pontos fracos" value={selectedHardScan.weakPoints} detail={`≤ ${DEFAULT_HARDSCAN_LIMITS.critical} no HardScan`} />
+              <Metric icon={<FileText />} title="Fissuras críticas" value={selectedFissures.criticalCount} detail="Classes CD, CE ou ruína" />
+            </section>
+
+            <section className="charts">
+              <ChartCard title="HardScan por dormente" subtitle="Compara média individual do ensaio por dormente/amostra.">
+                {selectedHardScan.chartData.length ? <ResponsiveContainer width="100%" height={280}><BarChart data={selectedHardScan.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="label" stroke={chartColors.text} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="media" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre medições HardScan para visualizar o gráfico.</EmptyHint>}
+              </ChartCard>
+              <ChartCard title="Fissuras por classe" subtitle="Classificação automática por abertura/comprimento, com possibilidade de ajuste manual.">
+                {selectedFissures.count ? <ResponsiveContainer width="100%" height={280}><BarChart data={selectedFissures.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre fissuras para visualizar o gráfico.</EmptyHint>}
+              </ChartCard>
+            </section>
+
+            <section className="split report-section">
+              <div className="panel">
+                <div className="section-head compact-head">
+                  <div><h2>Registro HardScan</h2><p className="muted">Modelo compatível com DORM, valores 1 a 4, média individual, equipamento e data.</p></div>
+                  <button className="no-print" onClick={addHardScanRecord}><Plus size={16} /> Adicionar</button>
+                </div>
+                <div className="table-wrap compact technical-table"><table><thead><tr><th>Data</th><th>Dormente</th><th>Equipamento</th><th>V1</th><th>V2</th><th>V3</th><th>V4</th><th>Média</th><th>Obs.</th><th>Excluir</th></tr></thead><tbody>{(selectedTrack.hardScanRecords || []).length ? (selectedTrack.hardScanRecords || []).map((record) => <tr key={record.id}><td><input type="date" value={record.date} onChange={(e) => updateHardScanRecord(record.id, { date: e.target.value })} /></td><td><input value={record.sleeper} onChange={(e) => updateHardScanRecord(record.id, { sleeper: e.target.value })} /></td><td><input value={record.equipment} onChange={(e) => updateHardScanRecord(record.id, { equipment: e.target.value })} /></td><td><input value={record.value1} onChange={(e) => updateHardScanRecord(record.id, { value1: e.target.value })} /></td><td><input value={record.value2} onChange={(e) => updateHardScanRecord(record.id, { value2: e.target.value })} /></td><td><input value={record.value3} onChange={(e) => updateHardScanRecord(record.id, { value3: e.target.value })} /></td><td><input value={record.value4} onChange={(e) => updateHardScanRecord(record.id, { value4: e.target.value })} /></td><td><input value={record.average} placeholder={formatNumber(getHardScanAverage(record))} onChange={(e) => updateHardScanRecord(record.id, { average: e.target.value })} /></td><td><input value={record.notes} onChange={(e) => updateHardScanRecord(record.id, { notes: e.target.value })} /></td><td><button className="ghost" onClick={() => deleteHardScanRecord(record.id)}><Trash2 size={15} /></button></td></tr>) : <tr><td colSpan="10">Sem medições cadastradas.</td></tr>}</tbody></table></div>
+              </div>
+
+              <div className="panel">
+                <div className="section-head compact-head">
+                  <div><h2>Monitoramento de fissuras</h2><p className="muted">Registre lado, comprimento lateral/superior e abertura. O sistema sugere a classe da planilha.</p></div>
+                  <button className="no-print" onClick={addFissureRecord}><Plus size={16} /> Adicionar</button>
+                </div>
+                <div className="table-wrap compact technical-table"><table><thead><tr><th>Data</th><th>Dormente</th><th>Lado</th><th>Lateral mm</th><th>Superior mm</th><th>Abertura mm</th><th>Classe</th><th>Obs.</th><th>Excluir</th></tr></thead><tbody>{(selectedTrack.fissureRecords || []).length ? (selectedTrack.fissureRecords || []).map((record) => <tr key={record.id}><td><input type="date" value={record.date} onChange={(e) => updateFissureRecord(record.id, { date: e.target.value })} /></td><td><input value={record.sleeper} onChange={(e) => updateFissureRecord(record.id, { sleeper: e.target.value })} /></td><td><select value={record.side} onChange={(e) => updateFissureRecord(record.id, { side: e.target.value })}><option value="">-</option><option>LE</option><option>LD</option><option>Centro</option></select></td><td><input value={record.lateralLength} onChange={(e) => updateFissureRecord(record.id, { lateralLength: e.target.value, classKey: classifyFissure({ ...record, lateralLength: e.target.value }) })} /></td><td><input value={record.superiorLength} onChange={(e) => updateFissureRecord(record.id, { superiorLength: e.target.value, classKey: classifyFissure({ ...record, superiorLength: e.target.value }) })} /></td><td><input value={record.opening} onChange={(e) => updateFissureRecord(record.id, { opening: e.target.value, classKey: classifyFissure({ ...record, opening: e.target.value }) })} /></td><td><select value={record.classKey} onChange={(e) => updateFissureRecord(record.id, { classKey: e.target.value })}>{FISSURE_CLASSES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></td><td><input value={record.notes} onChange={(e) => updateFissureRecord(record.id, { notes: e.target.value })} /></td><td><button className="ghost" onClick={() => deleteFissureRecord(record.id)}><Trash2 size={15} /></button></td></tr>) : <tr><td colSpan="9">Sem fissuras cadastradas.</td></tr>}</tbody></table></div>
+              </div>
+            </section>
+          </section>
+        )}
+
         {activeTab === 'dashboard' && (
           <section className="dashboard-report report-section">
             <section className="panel no-print dashboard-controls">
@@ -1142,6 +1389,10 @@ export default function App() {
               <Metric icon={<AlertTriangle />} title="Críticos" value={`${dashboardTotals.Inservível + dashboardTotals.Ruína}`} detail="Inservível + Ruína" />
               <Metric icon={<Train />} title="Malhas críticas" value={dashboardTotals.clusters} detail="Clusters de inservível/ruína" />
               <Metric icon={<CheckCircle2 />} title="Marcações" value={`${dashboardTotals.pinturasUma}/${dashboardTotals.pinturasDuas}`} detail="1 pintura / 2 pinturas" />
+              <Metric icon={<TrendingUp />} title="Taxa prospecção" value={dashboardTechnical.prospectionRate === null ? '-' : `${dashboardTechnical.prospectionRate}%`} detail={`${dashboardTechnical.inservivelTotal} inservíveis / ${dashboardTechnical.prospectionTotal} prospectados`} />
+              <Metric icon={<BarChart3 />} title="HardScan médio" value={dashboardTechnical.hardScanAverage === null ? '-' : dashboardTechnical.hardScanAverage} detail="Média das amostras filtradas" />
+              <Metric icon={<FileText />} title="Fissuras críticas" value={dashboardTechnical.fissureCritical} detail="Classes CD, CE e ruína" />
+              <Metric icon={<AlertTriangle />} title="Regulares adj." value={dashboardTotals.regularesAdjacentes} detail="Regulares ao lado de críticos" />
             </section>
 
             <section className="panel report-section action-plan-card">
@@ -1175,6 +1426,15 @@ export default function App() {
                 </ChartCard>
               </section>
             )}
+
+            {(dashboardTechnical.prospectionRows.length || dashboardTechnical.hardScanRows.length || dashboardTechnical.fissureRows.some((row) => row.total > 0)) ? (
+              <section className="charts">
+                {!!dashboardTechnical.prospectionRows.length && <ChartCard title="Taxa de inservíveis por prospecção" subtitle="Personalizado a partir da aba Prospecção Trecho: inservíveis / dormentes prospectados."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.prospectionRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={80} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="taxa" name="Taxa %" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="referenceRate" name="Taxa ref. %" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {!!dashboardTechnical.hardScanRows.length && <ChartCard title="HardScan médio por trecho" subtitle="Média dos ensaios cadastrados por trecho/equipamento."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.hardScanRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={80} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="hardScanMedio" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /><Bar dataKey="pontosFracos" name="Pontos fracos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {dashboardTechnical.fissureRows.some((row) => row.total > 0) && <ChartCard title="Fissuras por classe" subtitle="Consolida as classes CA, CB, CC, CD, CE e Ruína dos trechos filtrados."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.fissureRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {dashboardGrouped.length > 0 && <ChartCard title="Novos críticos e ruínas" subtitle="Mostra quando a inspeção atual criou novas condições críticas contra a ida anterior."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="newCritical" name="Novos críticos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="newRuins" name="Novas ruínas" fill={chartColors.ruina} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+              </section>
+            ) : null}
 
             <section className="split report-section">
               <div className="panel">
@@ -1215,6 +1475,10 @@ export default function App() {
             <div className="panel procedure-card wide">
               <h2>Marcação de prospecção</h2>
               <ul><li><strong>Inservível:</strong> uma pintura.</li><li><strong>Ruína:</strong> duas pinturas.</li><li>Em equipamentos com junta/solda no trilho, deve haver dormentes bons antes e depois; se não houver, marcar com duas pinturas para substituição.</li></ul>
+            </div>
+            <div className="panel procedure-card wide">
+              <h2>HardScan e fissuras</h2>
+              <ul><li><strong>HardScan:</strong> registre DORM, valores de ensaio, média individual, equipamento e data para acompanhar pontos fracos por gráfico.</li><li><strong>Fissuras:</strong> use lado LE/LD, comprimento lateral/superior e abertura em mm. O sistema sugere classes CA, CB, CC, CD, CE ou Ruína.</li><li>Esses dados não substituem a sigla/cor da inspeção; eles explicam o motivo técnico da piora e melhoram a apresentação gerencial.</li></ul>
             </div>
             <div className="panel procedure-card wide">
               <h2>Criticidade operacional</h2>

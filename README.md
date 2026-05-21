@@ -23,6 +23,18 @@ Sistema web em React/Vite para registrar locais de trechos, acompanhar a piora d
 
 ## Publicar no GitHub Pages
 
-Suba o conteúdo deste ZIP no repositório e configure **Settings > Pages > Source: GitHub Actions**.
+Este pacote já está preparado para GitHub Pages.
 
-Este pacote não inclui `node_modules/` nem `dist/`. O GitHub Actions instala dependências e gera o build automaticamente.
+### Forma recomendada
+
+1. Suba o conteúdo deste ZIP no repositório.
+2. Vá em **Settings > Pages**.
+3. Em **Build and deployment**, escolha **GitHub Actions**.
+4. Faça push na branch `main`.
+5. O workflow `.github/workflows/deploy.yml` vai rodar `npm ci`, gerar o `dist` e publicar.
+
+### Forma alternativa
+
+Também existe uma pasta `docs/` já gerada. Se preferir publicar sem GitHub Actions, configure **Settings > Pages > Deploy from a branch > main > /docs**.
+
+Mais detalhes estão em `INSTRUCOES_GITHUB_PAGES.md`.
