@@ -1,34 +1,24 @@
-# Publicação no GitHub Pages - correção da tela branca
+# Publicação no GitHub Pages
 
-Esta pasta já contém o site pronto, compilado e estático.
+Esta pasta já está pronta para ser publicada diretamente no GitHub Pages.
 
 ## Como publicar
 
-1. Extraia este ZIP.
-2. Abra a pasta extraída.
-3. Envie para o repositório do GitHub **os arquivos que estão aqui dentro**, deixando o `index.html` diretamente na raiz do repositório.
+1. Extraia o ZIP.
+2. Envie para o repositório os arquivos que estão dentro desta pasta.
+3. O arquivo `index.html` precisa ficar na raiz do repositório.
 4. No GitHub, vá em **Settings > Pages**.
-5. Em **Build and deployment**, selecione:
+5. Configure:
    - **Source:** Deploy from a branch
-   - **Branch:** main
-   - **Folder:** / (root)
-6. Clique em **Save**.
-7. Aguarde alguns minutos e atualize a página com **Ctrl + F5**.
+   - **Branch:** `main`
+   - **Folder:** `/ (root)`
+6. Aguarde alguns minutos e atualize o site com Ctrl + F5.
 
-## Importante
+## Novidade desta versão
 
-O site não deve ficar dentro de uma subpasta como `dist`, `docs` ou `Controle-de-qualidade...` quando a publicação estiver configurada para `/ (root)`.
-
-A estrutura correta na raiz do repositório é:
-
-```text
-index.html
-404.html
-.nojekyll
-assets/
-README_PUBLICAR_GITHUB_PAGES.md
-```
-
-## Por que a tela ficou branca
-
-A tela branca normalmente acontece quando o GitHub Pages publica o arquivo `index.html` de desenvolvimento do Vite, que tenta carregar `/src/main.jsx`. O GitHub Pages não processa React/Vite automaticamente nesse modo. Esta versão já está compilada e carrega os arquivos da pasta `assets/` corretamente.
+- Botão **Ativar exemplo**.
+- Botão **Retirar exemplos**.
+- São carregados 10 trechos de exemplo.
+- Cada trecho tem 10 inspeções.
+- Os exemplos incluem degradação progressiva, malhas críticas, HardScan, fissuras e prospecção.
+- Ao retirar os exemplos, os registros reais do usuário são preservados.
