@@ -48,7 +48,7 @@ const STATUS = {
     score: 100,
     severity: 0,
     className: 'status-bom-azul',
-    color: '#1da7e8',
+    color: '#007FB6',
     textColor: '#ffffff',
     description: 'Dormente novo ou recentemente substituído, em condição boa de suporte e fixação, identificado pela sigla A e pela marcação azul.'
   },
@@ -59,7 +59,7 @@ const STATUS = {
     score: 100,
     severity: 0,
     className: 'status-bom-verde',
-    color: '#08b24e',
+    color: '#00B96B',
     textColor: '#ffffff',
     description: 'Dormente antigo, porém em condição boa de suporte e fixação, identificado pela sigla G e pela marcação verde.'
   },
@@ -70,7 +70,7 @@ const STATUS = {
     score: 75,
     severity: 1,
     className: 'status-regular-l1',
-    color: '#eed067',
+    color: '#FFEA73',
     textColor: '#111111',
     description: 'Dormente com degradação leve, ainda funcional, exigindo acompanhamento da evolução.'
   },
@@ -81,7 +81,7 @@ const STATUS = {
     score: 50,
     severity: 2,
     className: 'status-regular-l2',
-    color: '#f6c400',
+    color: '#FFDD00',
     textColor: '#111111',
     description: 'Dormente com degradação moderada, exigindo atenção e comparação nas próximas inspeções.'
   },
@@ -103,7 +103,7 @@ const STATUS = {
     score: 0,
     severity: 4,
     className: 'status-inservivel',
-    color: '#ff1a12',
+    color: '#D95E44',
     textColor: '#ffffff',
     description: 'Dormente inservível, identificado pela sigla V e pela cor vermelha. Deve entrar em plano de substituição e, na prospecção, recebe uma pintura.'
   },
@@ -114,7 +114,7 @@ const STATUS = {
     score: 0,
     severity: 5,
     className: 'status-ruina',
-    color: '#c8c8c8',
+    color: '#AEB8C2',
     textColor: '#111111',
     description: 'Dormente em ruína, identificado pela sigla R e pela cor cinza. Na prospecção, recebe duas pinturas.'
   }
@@ -128,37 +128,37 @@ const STATUS_ALIASES = {
 }
 
 const CHART_COLORS = {
-  bom_azul_novo: '#1da7e8',
-  bom_verde_antigo: '#08b24e',
-  regular_l1: '#eed067',
-  regular_l2: '#f6c400',
-  regular_l3: '#b88900',
-  inservivel: '#ff1a12',
-  ruina: '#c8c8c8',
-  bom: '#1da7e8',
-  regular: '#eed067',
-  line: '#1da7e8',
-  green: '#08b24e',
-  aqua: '#28a8e0',
-  grid: '#d7e3ef',
-  text: '#24435f'
+  bom_azul_novo: '#007FB6',
+  bom_verde_antigo: '#00B96B',
+  regular_l1: '#FFEA73',
+  regular_l2: '#FFDD00',
+  regular_l3: '#B88900',
+  inservivel: '#D95E44',
+  ruina: '#AEB8C2',
+  bom: '#007FB6',
+  regular: '#FFDD00',
+  line: '#007FB6',
+  green: '#00B96B',
+  aqua: '#00A9E0',
+  grid: '#D7E5EF',
+  text: '#052A52'
 }
 
 const DARK_CHART_COLORS = {
-  bom_azul_novo: '#4ec8ff',
-  bom_verde_antigo: '#37dd74',
-  regular_l1: '#ffe083',
-  regular_l2: '#ffd23d',
-  regular_l3: '#d7ab27',
-  inservivel: '#ff6b63',
-  ruina: '#d7d7d7',
-  bom: '#4ec8ff',
-  regular: '#ffe083',
-  line: '#4ec8ff',
-  green: '#37dd74',
-  aqua: '#5bd7ff',
-  grid: '#265178',
-  text: '#d7ebff'
+  bom_azul_novo: '#55C9F2',
+  bom_verde_antigo: '#52E68F',
+  regular_l1: '#FFF09A',
+  regular_l2: '#FFE45C',
+  regular_l3: '#D8AD38',
+  inservivel: '#FF8A72',
+  ruina: '#D5DEE6',
+  bom: '#55C9F2',
+  regular: '#FFE45C',
+  line: '#55C9F2',
+  green: '#52E68F',
+  aqua: '#72D9FF',
+  grid: '#274E72',
+  text: '#D7EEFF'
 }
 
 
@@ -858,7 +858,7 @@ export default function App() {
   const [newInspectionDate, setNewInspectionDate] = useState(today())
   const [activeTab, setActiveTab] = useState('trechos')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   const [savedAt, setSavedAt] = useState('')
   const [dashboardTrack, setDashboardTrack] = useState('all')
   const [dashboardStart, setDashboardStart] = useState('')
@@ -1131,9 +1131,12 @@ export default function App() {
       <div className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <aside className={`sidebar no-print ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div>
-            <strong>Menu principal</strong>
-            <p>Fluxo de trabalho: registre locais, inspecione, depois apresente no dashboard.</p>
+          <div className="sidebar-brand-block">
+            <img src="./assets/brand/rumo-logo-negativo.png" alt="Rumo" className="sidebar-brand-logo" />
+            <div>
+              <strong>Menu principal</strong>
+              <p>Fluxo de trabalho: registre locais, inspecione, depois apresente no dashboard.</p>
+            </div>
           </div>
           <button className="ghost sidebar-close" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
@@ -1174,6 +1177,11 @@ export default function App() {
             <span>{selectedTrack?.sleeperCount || 0} dormentes</span>
           </div>
         </div>
+        <aside className="hero-brand-panel">
+          <img src="./assets/brand/rumo-logo-tagline-negativo.png" alt="Rumo" />
+          <strong>Qualidade de via</strong>
+          <span>Interface compacta para ver mais dados por tela.</span>
+        </aside>
       </header>
 
       <section className="quick-save no-print">
@@ -1337,10 +1345,10 @@ export default function App() {
 
             <section className="charts">
               <ChartCard title="HardScan por dormente" subtitle="Compara média individual do ensaio por dormente/amostra.">
-                {selectedHardScan.chartData.length ? <ResponsiveContainer width="100%" height={280}><BarChart data={selectedHardScan.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="label" stroke={chartColors.text} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="media" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre medições HardScan para visualizar o gráfico.</EmptyHint>}
+                {selectedHardScan.chartData.length ? <ResponsiveContainer width="100%" height={218}><BarChart data={selectedHardScan.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="label" stroke={chartColors.text} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="media" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre medições HardScan para visualizar o gráfico.</EmptyHint>}
               </ChartCard>
               <ChartCard title="Fissuras por classe" subtitle="Classificação automática por abertura/comprimento, com possibilidade de ajuste manual.">
-                {selectedFissures.count ? <ResponsiveContainer width="100%" height={280}><BarChart data={selectedFissures.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre fissuras para visualizar o gráfico.</EmptyHint>}
+                {selectedFissures.count ? <ResponsiveContainer width="100%" height={218}><BarChart data={selectedFissures.chartData}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyHint>Cadastre fissuras para visualizar o gráfico.</EmptyHint>}
               </ChartCard>
             </section>
 
@@ -1407,32 +1415,32 @@ export default function App() {
             {dashboardGrouped.length === 0 ? <EmptyHint>Nenhum dado encontrado para os filtros selecionados.</EmptyHint> : (
               <section className="charts">
                 <ChartCard title="Evolução do desempenho" subtitle="Queda da nota indica degradação do trecho ao longo das idas.">
-                  <ResponsiveContainer width="100%" height={280}><LineChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis domain={[0, 100]} stroke={chartColors.text} /><Tooltip /><Legend /><Line type="monotone" dataKey="desempenho" name="Desempenho" stroke={chartColors.line} strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><LineChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis domain={[0, 100]} stroke={chartColors.text} /><Tooltip /><Legend /><Line type="monotone" dataKey="desempenho" name="Desempenho" stroke={chartColors.line} strokeWidth={3} dot={{ r: 4 }} /></LineChart></ResponsiveContainer>
                 </ChartCard>
                 <ChartCard title="Composição por condição" subtitle="Bom Azul-Novo, Bom Verde-Antigo, Regular L1/L2/L3, Inservível e Ruína.">
-                  <ResponsiveContainer width="100%" height={280}><AreaChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend />{STATUS_KEYS.map((key) => <Area key={key} type="monotone" dataKey={STATUS[key].label} name={STATUS[key].label} stackId="1" stroke={chartColors[key]} fill={chartColors[key]} fillOpacity={0.78} />)}</AreaChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><AreaChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend />{STATUS_KEYS.map((key) => <Area key={key} type="monotone" dataKey={STATUS[key].label} name={STATUS[key].label} stackId="1" stroke={chartColors[key]} fill={chartColors[key]} fillOpacity={0.78} />)}</AreaChart></ResponsiveContainer>
                 </ChartCard>
                 <ChartCard title="Taxa crítica" subtitle="Percentual de dormentação inservível/ruína dentro do filtro.">
-                  <ResponsiveContainer width="100%" height={280}><LineChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Line type="monotone" dataKey="criticalPercent" name="% crítico" stroke={chartColors.inservivel} strokeWidth={3} /></LineChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><LineChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Line type="monotone" dataKey="criticalPercent" name="% crítico" stroke={chartColors.inservivel} strokeWidth={3} /></LineChart></ResponsiveContainer>
                 </ChartCard>
                 <ChartCard title="Condição filtrada" subtitle="Mostra somente a condição escolhida nos filtros do dashboard.">
-                  <ResponsiveContainer width="100%" height={280}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="condicaoFiltrada" name={conditionFilter === 'all' ? 'Todas as condições' : STATUS[conditionFilter].label} fill={conditionFilter === 'all' ? chartColors.line : chartColors[conditionFilter]} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="condicaoFiltrada" name={conditionFilter === 'all' ? 'Todas as condições' : STATUS[conditionFilter].label} fill={conditionFilter === 'all' ? chartColors.line : chartColors[conditionFilter]} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
                 </ChartCard>
                 <ChartCard title="Malhas / clusters" subtitle="Sequências de dormentes em condição crítica.">
-                  <ResponsiveContainer width="100%" height={280}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="clustersCriticos" name="Malhas críticas" fill={chartColors.line} radius={[8, 8, 0, 0]} /><Bar dataKey="maiorMalhaCritica" name="Maior malha" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="clustersCriticos" name="Malhas críticas" fill={chartColors.line} radius={[8, 8, 0, 0]} /><Bar dataKey="maiorMalhaCritica" name="Maior malha" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
                 </ChartCard>
                 <ChartCard title="Marcação de prospecção" subtitle="Uma pintura para inservível e duas pinturas para ruína.">
-                  <ResponsiveContainer width="100%" height={280}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="pinturasUma" name="1 pintura" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="pinturasDuas" name="2 pinturas" fill={chartColors.ruina} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={218}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="pinturasUma" name="1 pintura" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="pinturasDuas" name="2 pinturas" fill={chartColors.ruina} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer>
                 </ChartCard>
               </section>
             )}
 
             {(dashboardTechnical.prospectionRows.length || dashboardTechnical.hardScanRows.length || dashboardTechnical.fissureRows.some((row) => row.total > 0)) ? (
               <section className="charts">
-                {!!dashboardTechnical.prospectionRows.length && <ChartCard title="Taxa de inservíveis por prospecção" subtitle="Personalizado a partir da aba Prospecção Trecho: inservíveis / dormentes prospectados."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.prospectionRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={80} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="taxa" name="Taxa %" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="referenceRate" name="Taxa ref. %" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
-                {!!dashboardTechnical.hardScanRows.length && <ChartCard title="HardScan médio por trecho" subtitle="Média dos ensaios cadastrados por trecho/equipamento."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.hardScanRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={80} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="hardScanMedio" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /><Bar dataKey="pontosFracos" name="Pontos fracos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
-                {dashboardTechnical.fissureRows.some((row) => row.total > 0) && <ChartCard title="Fissuras por classe" subtitle="Consolida as classes CA, CB, CC, CD, CE e Ruína dos trechos filtrados."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardTechnical.fissureRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
-                {dashboardGrouped.length > 0 && <ChartCard title="Novos críticos e ruínas" subtitle="Mostra quando a inspeção atual criou novas condições críticas contra a ida anterior."><ResponsiveContainer width="100%" height={280}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="newCritical" name="Novos críticos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="newRuins" name="Novas ruínas" fill={chartColors.ruina} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {!!dashboardTechnical.prospectionRows.length && <ChartCard title="Taxa de inservíveis por prospecção" subtitle="Personalizado a partir da aba Prospecção Trecho: inservíveis / dormentes prospectados."><ResponsiveContainer width="100%" height={218}><BarChart data={dashboardTechnical.prospectionRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={58} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="taxa" name="Taxa %" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="referenceRate" name="Taxa ref. %" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {!!dashboardTechnical.hardScanRows.length && <ChartCard title="HardScan médio por trecho" subtitle="Média dos ensaios cadastrados por trecho/equipamento."><ResponsiveContainer width="100%" height={218}><BarChart data={dashboardTechnical.hardScanRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="trackName" stroke={chartColors.text} interval={0} angle={-18} textAnchor="end" height={58} /><YAxis stroke={chartColors.text} /><Tooltip /><Legend /><Bar dataKey="hardScanMedio" name="Média HardScan" fill={chartColors.aqua} radius={[8, 8, 0, 0]} /><Bar dataKey="pontosFracos" name="Pontos fracos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {dashboardTechnical.fissureRows.some((row) => row.total > 0) && <ChartCard title="Fissuras por classe" subtitle="Consolida as classes CA, CB, CC, CD, CE e Ruína dos trechos filtrados."><ResponsiveContainer width="100%" height={218}><BarChart data={dashboardTechnical.fissureRows}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="classe" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="total" name="Fissuras" fill={chartColors.regular_l2} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
+                {dashboardGrouped.length > 0 && <ChartCard title="Novos críticos e ruínas" subtitle="Mostra quando a inspeção atual criou novas condições críticas contra a ida anterior."><ResponsiveContainer width="100%" height={218}><BarChart data={dashboardGrouped}><CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" /><XAxis dataKey="data" stroke={chartColors.text} /><YAxis stroke={chartColors.text} allowDecimals={false} /><Tooltip /><Legend /><Bar dataKey="newCritical" name="Novos críticos" fill={chartColors.inservivel} radius={[8, 8, 0, 0]} /><Bar dataKey="newRuins" name="Novas ruínas" fill={chartColors.ruina} radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></ChartCard>}
               </section>
             ) : null}
 
