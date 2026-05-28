@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   FileText,
+  History,
   LayoutDashboard,
   Lock,
   Menu,
@@ -159,6 +160,14 @@ const DARK_CHART_COLORS = {
   aqua: '#72D9FF',
   grid: '#274E72',
   text: '#D7EEFF'
+}
+
+
+const CLASSIFICATION_COLORS = {
+  'Ótimo': '#00B96B',
+  'Atenção': '#B88900',
+  'Crítico': '#D95E44',
+  'Sem dados': '#7C93A8'
 }
 
 
@@ -878,6 +887,8 @@ export default function App() {
   const [dashboardEnd, setDashboardEnd] = useState('')
   const [conditionFilter, setConditionFilter] = useState('all')
   const [inspectionEditor, setInspectionEditor] = useState(null)
+  const [historyTrack, setHistoryTrack] = useState('all')
+  const [historySort, setHistorySort] = useState('desc')
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme)
@@ -939,6 +950,33 @@ export default function App() {
   const selectedHardScan = useMemo(() => analyzeHardScan(selectedTrack?.hardScanRecords || []), [selectedTrack])
   const selectedFissures = useMemo(() => analyzeFissures(selectedTrack?.fissureRecords || []), [selectedTrack])
   const selectedProspection = useMemo(() => getProspectionStats(selectedTrack), [selectedTrack])
+
+  const historyData = useMemo(() => {
+    const entries = tracks.map((track) => {
+      const analysis = analyzeTrack(track)
+      const rows = [...analysis.rows].sort((a, b) => historySort === 'asc'
+        ? parseDate(a.date) - parseDate(b.date)
+        : parseDate(b.date) - parseDate(a.date))
+      const dates = rows.map((row) => row.date).filter(Boolean).sort()
+      return { track, analysis, rows, firstDate: dates[0] || '', lastDate: dates.at(-1) || '' }
+    })
+    const filteredEntries = historyTrack === 'all' ? entries : entries.filter((entry) => entry.track.id === historyTrack)
+    const consolidated = filteredEntries
+      .flatMap((entry) => entry.rows.map((row) => ({ ...row, track: entry.track })))
+      .sort((a, b) => historySort === 'asc' ? parseDate(a.date) - parseDate(b.date) : parseDate(b.date) - parseDate(a.date))
+    const allDates = entries.flatMap((entry) => entry.rows.map((row) => row.date)).filter(Boolean).sort()
+    return {
+      entries,
+      filteredEntries,
+      consolidated,
+      totalTracks: tracks.length,
+      tracksWithInspections: entries.filter((entry) => entry.rows.length).length,
+      totalInspections: entries.reduce((sum, entry) => sum + entry.rows.length, 0),
+      totalSleepers: tracks.reduce((sum, track) => sum + (track.sleepers?.length || 0), 0),
+      firstDate: allDates[0] || '',
+      lastDate: allDates.at(-1) || ''
+    }
+  }, [tracks, historyTrack, historySort])
 
   function updateTrack(patch) {
     setTracks((current) => current.map((track) => track.id === selectedTrack.id ? { ...track, ...patch } : track))
@@ -1181,11 +1219,71 @@ export default function App() {
     }, 250)
   }
 
+  function buildHistoryHtml() {
+    const statusHeaders = STATUS_KEYS.map((key) => `<th>${escapeExcel(STATUS[key].label)}</th>`).join('')
+    const trackRows = historyData.entries.map((entry) => {
+      const km = entry.track.kmStart && entry.track.kmEnd ? `${entry.track.kmStart} a ${entry.track.kmEnd}` : '-'
+      return `<tr><td>${escapeExcel(entry.track.name || 'Novo trecho')}</td><td>${escapeExcel(km)}</td><td>${escapeExcel(entry.track.malha || '-')}</td><td>${escapeExcel(entry.track.responsible || '-')}</td><td>${entry.track.sleepers?.length || 0}</td><td>${entry.rows.length}</td><td>${entry.firstDate ? formatDate(entry.firstDate) : '-'}</td><td>${entry.lastDate ? formatDate(entry.lastDate) : '-'}</td><td>${entry.analysis.classification}</td><td>${entry.analysis.latest.desempenho}</td><td>${entry.analysis.riskIndex}</td></tr>`
+    }).join('')
+    const inspectionRows = historyData.consolidated.map((row) => {
+      const km = row.track.kmStart && row.track.kmEnd ? `${row.track.kmStart} a ${row.track.kmEnd}` : '-'
+      const statusCells = STATUS_KEYS.map((key) => `<td>${row[STATUS[key].label] || 0}</td>`).join('')
+      return `<tr><td>${escapeExcel(row.data)}</td><td>${escapeExcel(row.track.name || 'Novo trecho')}</td><td>${escapeExcel(km)}</td><td>${escapeExcel(row.track.responsible || '-')}</td><td>${row.track.sleepers?.length || 0}</td><td>${row.desempenho}</td>${statusCells}<td>${row.Bom}</td><td>${row.Regular}</td><td>${row.Inservível}</td><td>${row.Ruína}</td><td>${row.criticalPercent}%</td><td>${row.clustersCriticos}</td><td>${row.maiorMalhaCritica}</td><td>${row.newCritical}</td><td>${row.newRuins}</td><td>${escapeExcel(row.notes || '')}</td></tr>`
+    }).join('')
+    const trackFilterLabel = historyTrack === 'all' ? 'Todos os trechos' : (tracks.find((t) => t.id === historyTrack)?.name || '-')
+    return `
+      <html><head><meta charset="UTF-8" />
+      <style>body{font-family:Arial,Helvetica,sans-serif;color:#052A52;padding:18px;}h1{font-size:20px;margin:0 0 4px;}h2{font-size:15px;margin:22px 0 8px;}p{margin:2px 0;font-size:12px;}table{border-collapse:collapse;width:100%;font-size:11px;margin-top:6px;}th,td{border:1px solid #9bb6cf;padding:5px 6px;text-align:left;}th{background:#e7f1fb;}</style>
+      </head><body>
+        <h1>Histórico de prospecção de dormentes — Rumo</h1>
+        <p><strong>Filtro:</strong> ${escapeExcel(trackFilterLabel)} &nbsp;•&nbsp; <strong>Ordem:</strong> ${historySort === 'asc' ? 'Mais antiga primeiro' : 'Mais recente primeiro'}</p>
+        <p><strong>Trechos:</strong> ${historyData.totalTracks} &nbsp;•&nbsp; <strong>Inspeções:</strong> ${historyData.totalInspections} &nbsp;•&nbsp; <strong>Dormentes monitorados:</strong> ${historyData.totalSleepers}</p>
+        <p><strong>Período:</strong> ${historyData.firstDate ? formatDate(historyData.firstDate) : 'sem registro'} até ${historyData.lastDate ? formatDate(historyData.lastDate) : 'sem registro'}</p>
+        <h2>Resumo por trecho</h2>
+        <table><tr><th>Trecho</th><th>KM</th><th>Malha</th><th>Inspetor</th><th>Dormentes</th><th>Inspeções</th><th>1ª inspeção</th><th>Última inspeção</th><th>Classificação</th><th>Desempenho</th><th>Risco</th></tr>${trackRows || '<tr><td colspan="11">Sem trechos cadastrados.</td></tr>'}</table>
+        <h2>Todas as inspeções</h2>
+        <table><tr><th>Data</th><th>Trecho</th><th>KM</th><th>Inspetor</th><th>Dorm.</th><th>Desemp.</th>${statusHeaders}<th>Bom</th><th>Regular</th><th>Inservível</th><th>Ruína</th><th>% Crítico</th><th>Malhas</th><th>Maior malha</th><th>Novos críticos</th><th>Novas ruínas</th><th>Observação</th></tr>${inspectionRows || '<tr><td colspan="20">Nenhuma inspeção registrada.</td></tr>'}</table>
+      </body></html>`
+  }
+
+  function exportHistoryExcel() {
+    const blob = new Blob([buildHistoryHtml()], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'historico-dormentes-rumo.xls'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  function printHistoryPDF() {
+    const frame = document.createElement('iframe')
+    frame.style.position = 'fixed'
+    frame.style.right = '0'
+    frame.style.bottom = '0'
+    frame.style.width = '0'
+    frame.style.height = '0'
+    frame.style.border = '0'
+    document.body.appendChild(frame)
+    const doc = frame.contentWindow.document
+    doc.open()
+    doc.write(buildHistoryHtml())
+    doc.close()
+    setTimeout(() => {
+      frame.contentWindow.focus()
+      frame.contentWindow.print()
+      setTimeout(() => document.body.removeChild(frame), 1200)
+    }, 250)
+  }
+
   const tabItems = [
     { id: 'trechos', label: 'Registro de trechos', icon: Train },
     { id: 'inspecao', label: 'Inspeção', icon: ClipboardList },
     { id: 'ensaios', label: 'Ensaios e fissuras', icon: Activity },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'historico', label: 'Histórico', icon: History },
     { id: 'procedimentos', label: 'Procedimentos', icon: BookOpen }
   ]
 
@@ -1571,6 +1669,142 @@ export default function App() {
                 <h2>Piores dormentes do trecho ativo</h2>
                 <div className="table-wrap compact"><table><thead><tr><th>Dormente</th><th>Status</th><th>Pioras</th><th>Crítico desde</th></tr></thead><tbody>{selectedAnalysis.worstSleepers.length ? selectedAnalysis.worstSleepers.map((item) => <tr key={item.id}><td>{item.id}</td><td>{STATUS[item.currentStatus].label}</td><td>{item.degradationSteps}</td><td>{item.criticalSince ? formatDate(item.criticalSince) : '-'}</td></tr>) : <tr><td colSpan="4">Sem degradação registrada.</td></tr>}</tbody></table></div>
               </div>
+            </section>
+          </section>
+        )}
+
+        {activeTab === 'historico' && (
+          <section className="dashboard-report report-section">
+            <section className="panel no-print dashboard-controls">
+              <div>
+                <span className="section-kicker"><History size={15} /> Registro completo</span>
+                <h2>Histórico de prospecção</h2>
+                <p className="muted">Reúne todos os trechos cadastrados e todas as inspeções já registradas neste aparelho, ordenadas por data.</p>
+              </div>
+              <div className="dashboard-filter-grid">
+                <label>Trecho<select value={historyTrack} onChange={(e) => setHistoryTrack(e.target.value)}><option value="all">Todos os trechos</option>{tracks.map((track) => <option key={track.id} value={track.id}>{track.name || 'Novo trecho'}</option>)}</select></label>
+                <label>Ordenar por data<select value={historySort} onChange={(e) => setHistorySort(e.target.value)}><option value="desc">Mais recente primeiro</option><option value="asc">Mais antiga primeiro</option></select></label>
+              </div>
+              <div className="actions dashboard-actions">
+                <button className="success" onClick={exportHistoryExcel}><FileSpreadsheet size={16} /> Exportar Excel</button>
+                <button className="danger" onClick={printHistoryPDF}><FileText size={16} /> PDF do histórico</button>
+              </div>
+            </section>
+
+            <section className="metrics">
+              <Metric icon={<Train />} title="Trechos cadastrados" value={historyData.totalTracks} detail={`${historyData.tracksWithInspections} com inspeção registrada`} />
+              <Metric icon={<ClipboardList />} title="Inspeções registradas" value={historyData.totalInspections} detail="Somando todas as idas a campo" />
+              <Metric icon={<CalendarDays />} title="Período coberto" value={historyData.firstDate ? formatDate(historyData.firstDate) : '-'} detail={historyData.lastDate ? `até ${formatDate(historyData.lastDate)}` : 'sem registros'} />
+              <Metric icon={<BarChart3 />} title="Dormentes monitorados" value={historyData.totalSleepers} detail="Total na base de trechos" />
+            </section>
+
+            <div className="legend legend-large no-print">
+              {Object.entries(STATUS).map(([key, status]) => <span key={key} className={status.className}>{status.label}</span>)}
+            </div>
+
+            <section className="panel report-section">
+              <div className="section-head compact-head">
+                <div>
+                  <h2>Linha do tempo de inspeções</h2>
+                  <p className="muted">Cada linha é uma ida a campo. {historyTrack === 'all' ? 'Inclui todos os trechos cadastrados.' : 'Filtrado pelo trecho selecionado.'}</p>
+                </div>
+              </div>
+              {historyData.consolidated.length === 0 ? <EmptyHint>Nenhuma inspeção registrada ainda. Cadastre um trecho e registre inspeções para alimentar o histórico.</EmptyHint> : (
+                <div className="table-wrap compact">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Data</th><th>Trecho</th><th>KM</th><th>Inspetor</th><th>Dorm.</th><th>Desemp.</th><th>Bom</th><th>Regular</th><th>Inservível</th><th>Ruína</th><th>% Crít.</th><th>Malhas</th><th>Novos crít./ruína</th><th>Observação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyData.consolidated.map((row, index) => (
+                        <tr key={`${row.trackId}-${row.date}-${index}`}>
+                          <td>{row.data}</td>
+                          <td>{row.track.name || 'Novo trecho'}</td>
+                          <td>{row.track.kmStart && row.track.kmEnd ? `${row.track.kmStart}–${row.track.kmEnd}` : '-'}</td>
+                          <td>{row.track.responsible || '-'}</td>
+                          <td>{row.track.sleepers?.length || 0}</td>
+                          <td><strong>{row.desempenho}</strong></td>
+                          <td>{row.Bom}</td>
+                          <td>{row.Regular}</td>
+                          <td style={row.Inservível ? { color: STATUS.inservivel.color, fontWeight: 900 } : undefined}>{row.Inservível}</td>
+                          <td style={row.Ruína ? { fontWeight: 900 } : undefined}>{row.Ruína}</td>
+                          <td>{row.criticalPercent}%</td>
+                          <td>{row.clustersCriticos}</td>
+                          <td>{row.newCritical || row.newRuins ? `${row.newCritical}/${row.newRuins}` : '-'}</td>
+                          <td>{row.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="panel report-section">
+              <div className="section-head compact-head">
+                <div>
+                  <h2>Detalhe por trecho</h2>
+                  <p className="muted">Cada trecho com seus dados de cadastro e o histórico completo das suas inspeções.</p>
+                </div>
+              </div>
+              {historyData.filteredEntries.length === 0 ? <EmptyHint>Nenhum trecho para exibir.</EmptyHint> : (
+                <div className="history-track-list">
+                  {historyData.filteredEntries.map((entry) => {
+                    const km = entry.track.kmStart && entry.track.kmEnd ? `${entry.track.kmStart} até ${entry.track.kmEnd}` : 'KM não informado'
+                    const classColor = CLASSIFICATION_COLORS[entry.analysis.classification] || '#7C93A8'
+                    return (
+                      <article key={entry.track.id} className="history-track-card">
+                        <div className="history-track-head">
+                          <div>
+                            <h3>{entry.track.name || 'Novo trecho'}</h3>
+                            <div className="history-meta">
+                              <span>{km}</span>
+                              {entry.track.malha && <span>Malha: {entry.track.malha}</span>}
+                              {entry.track.sleeperMaterial && <span>Material: {entry.track.sleeperMaterial}</span>}
+                              {entry.track.geometryType && <span>Traçado: {entry.track.geometryType}</span>}
+                              {entry.track.responsible && <span>Inspetor: {entry.track.responsible}</span>}
+                              <span>{entry.track.sleepers?.length || 0} dormentes</span>
+                              <span>{entry.rows.length} inspeções</span>
+                              {entry.lastDate && <span>Última: {formatDate(entry.lastDate)}</span>}
+                            </div>
+                          </div>
+                          <span className="history-pill" style={{ color: classColor }}>{entry.analysis.classification} • risco {entry.analysis.riskIndex}</span>
+                        </div>
+                        {entry.rows.length === 0 ? <p className="history-empty">Sem inspeções registradas para este trecho.</p> : (
+                          <div className="table-wrap compact">
+                            <table>
+                              <thead>
+                                <tr><th>Data</th><th>Desemp.</th><th>Bom</th><th>Regular</th><th>Inservível</th><th>Ruína</th><th>% Crít.</th><th>Malhas</th><th>Maior malha</th><th>Pioras</th><th>Melhoras</th><th>Novos crít./ruína</th><th>Observação</th></tr>
+                              </thead>
+                              <tbody>
+                                {entry.rows.map((row, index) => (
+                                  <tr key={`${entry.track.id}-${row.date}-${index}`}>
+                                    <td>{row.data}</td>
+                                    <td><strong>{row.desempenho}</strong></td>
+                                    <td>{row.Bom}</td>
+                                    <td>{row.Regular}</td>
+                                    <td style={row.Inservível ? { color: STATUS.inservivel.color, fontWeight: 900 } : undefined}>{row.Inservível}</td>
+                                    <td style={row.Ruína ? { fontWeight: 900 } : undefined}>{row.Ruína}</td>
+                                    <td>{row.criticalPercent}%</td>
+                                    <td>{row.clustersCriticos}</td>
+                                    <td>{row.maiorMalhaCritica}</td>
+                                    <td>{row.worsened}</td>
+                                    <td>{row.improved}</td>
+                                    <td>{row.newCritical || row.newRuins ? `${row.newCritical}/${row.newRuins}` : '-'}</td>
+                                    <td>{row.notes || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           </section>
         )}
