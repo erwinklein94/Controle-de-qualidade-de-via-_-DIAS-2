@@ -721,7 +721,7 @@ function buildInspectionGradeHtml(track, mode = 'pdf') {
   const rows = sortedInspections.map((inspection) => {
     const cells = sleepers.map((sleeper) => {
       const key = normalizeStatus(inspection.conditions?.[sleeper.id] || DEFAULT_STATUS)
-      const content = mode === 'excel' ? STATUS[key].label : STATUS[key].short
+      const content = STATUS[key].short
       return `<td style="${statusCellStyle(key)}">${escapeExcel(content)}</td>`
     }).join('')
     return `<tr><td>${escapeExcel(formatDate(inspection.date))}</td><td>${escapeExcel(inspection.notes)}</td>${cells}</tr>`
@@ -1244,14 +1244,7 @@ export default function App() {
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />} {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
             </button>
           </div>
-          <span className="eyebrow"><Train size={16} /> Prospecção de dormentes • Rumo</span>
           <h1>Controle de degradação de dormentes</h1>
-          <p>Ferramenta para registrar trechos, comparar idas ao mesmo local, identificar malhas críticas e gerar apresentação gerencial com dados filtráveis.</p>
-          <div className="hero-tags">
-            <span>{selectedTrack?.name || 'Novo trecho'}</span>
-            <span>{selectedTrack?.kmStart && selectedTrack?.kmEnd ? `${selectedTrack.kmStart} até ${selectedTrack.kmEnd}` : 'KM não informado'}</span>
-            <span>{selectedTrack?.sleeperCount || 0} dormentes</span>
-          </div>
         </div>
         <aside className="hero-brand-panel">
           <img src="./assets/brand/rumo-logo-tagline-negativo.png" alt="Rumo" />
