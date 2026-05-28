@@ -1181,3 +1181,316 @@ td {
 @media print {
   html { font-size: 11px; }
 }
+
+/* ===== MODO DE EDIÇÃO AMPLIADA DA GRADE ===== */
+.inspection-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 2vw, 24px);
+  background: rgba(0, 18, 34, .68);
+  backdrop-filter: blur(8px);
+}
+
+.inspection-editor-panel {
+  position: relative;
+  width: min(1380px, 100%);
+  height: min(900px, calc(100dvh - 24px));
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: clamp(12px, 2vw, 18px);
+  padding: clamp(16px, 2.4vw, 34px);
+  color: #E7F5FF;
+  border: 1px solid rgba(214, 235, 247, .24);
+  border-radius: clamp(22px, 3vw, 34px);
+  background:
+    radial-gradient(circle at 8% 10%, rgba(0, 169, 224, .28), transparent 26rem),
+    radial-gradient(circle at 92% 4%, rgba(0, 214, 107, .18), transparent 24rem),
+    linear-gradient(135deg, rgba(0, 46, 83, .98) 0%, rgba(0, 59, 103, .98) 55%, rgba(0, 90, 137, .98) 100%);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .40);
+}
+
+.inspection-editor-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.20);
+  color: white;
+  box-shadow: none;
+}
+
+.inspection-editor-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 360px);
+  gap: 18px;
+  align-items: end;
+  padding-right: 64px;
+}
+
+.inspection-editor-header .section-kicker {
+  color: rgba(255,255,255,.66);
+}
+
+.inspection-editor-header h2 {
+  margin: 4px 0 6px;
+  color: #fff;
+  font-size: clamp(28px, 4vw, 50px);
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+
+.inspection-editor-header p {
+  margin: 0;
+  color: rgba(255,255,255,.82);
+  font-size: clamp(14px, 1.5vw, 18px);
+}
+
+.inspection-editor-progress {
+  display: grid;
+  gap: 8px;
+  align-content: end;
+  font-size: 15px;
+}
+
+.inspection-editor-progress strong {
+  font-size: clamp(17px, 2vw, 24px);
+  color: #fff;
+}
+
+.inspection-editor-progress span {
+  color: rgba(255,255,255,.76);
+  font-weight: 900;
+}
+
+.progress-track {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255,255,255,.13);
+}
+
+.progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #00D66B, #00A9E0);
+}
+
+.inspection-editor-meta {
+  display: grid;
+  grid-template-columns: minmax(180px, 270px) minmax(220px, 1fr);
+  gap: 12px;
+}
+
+.inspection-editor-meta label {
+  color: rgba(255,255,255,.88);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px 10px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 18px;
+  background: rgba(255,255,255,.08);
+}
+
+.inspection-editor-meta input {
+  grid-column: 1 / -1;
+  min-height: 48px;
+  color: #E7F5FF;
+  border-color: rgba(255,255,255,.20);
+  background: rgba(0, 20, 38, .34);
+}
+
+.inspection-editor-box {
+  display: grid;
+  gap: 14px;
+  padding: clamp(12px, 2vw, 22px);
+  border: 1px solid rgba(255,255,255,.17);
+  border-radius: 26px;
+  background: rgba(255,255,255,.06);
+}
+
+.inspection-editor-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: rgba(255,255,255,.80);
+  font-weight: 900;
+}
+
+.inspection-editor-current strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  min-height: 48px;
+  padding: 8px 16px;
+  border-radius: 16px;
+  color: #052A52;
+  background: #FFDD00;
+  font-size: clamp(20px, 3vw, 30px);
+}
+
+.inspection-editor-current em {
+  color: #fff;
+  font-style: normal;
+  font-size: clamp(16px, 2vw, 22px);
+}
+
+.inspection-editor-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.5vw, 18px);
+}
+
+.editor-status-button {
+  position: relative;
+  min-height: clamp(92px, 14vh, 145px);
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: clamp(16px, 2.5vw, 26px);
+  border-radius: 24px;
+  border: 2px solid currentColor;
+  box-shadow: 0 18px 34px rgba(0,0,0,.22);
+  text-align: left;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editor-status-button span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 56px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.20);
+  color: inherit;
+  font-size: clamp(15px, 2vw, 21px);
+  font-weight: 950;
+}
+
+.editor-status-button strong {
+  color: inherit;
+  font-size: clamp(20px, 2.6vw, 34px);
+  line-height: 1.05;
+}
+
+.editor-status-button small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 950;
+  opacity: .92;
+}
+
+.editor-status-button.selected {
+  outline: 5px solid rgba(255,255,255,.86);
+  outline-offset: -7px;
+  transform: translateY(-2px);
+  filter: saturate(1.16) brightness(1.08);
+}
+
+.editor-status-button.status-bom-azul { background: linear-gradient(135deg, rgba(0, 127, 182, .95), rgba(0, 169, 224, .82)); color: white; }
+.editor-status-button.status-bom-verde { background: linear-gradient(135deg, rgba(0, 185, 107, .95), rgba(0, 214, 107, .72)); color: white; }
+.editor-status-button.status-regular-l1 { background: linear-gradient(135deg, rgba(255, 234, 115, .98), rgba(255, 221, 0, .70)); color: #3D3200; }
+.editor-status-button.status-regular-l2 { background: linear-gradient(135deg, rgba(255, 221, 0, .98), rgba(184, 137, 0, .60)); color: #2F2600; }
+.editor-status-button.status-regular-l3 { background: linear-gradient(135deg, rgba(184, 137, 0, .95), rgba(255, 221, 0, .48)); color: white; }
+.editor-status-button.status-inservivel { background: linear-gradient(135deg, rgba(217, 94, 68, .98), rgba(255, 26, 18, .62)); color: white; }
+.editor-status-button.status-ruina { background: linear-gradient(135deg, rgba(174, 184, 194, .95), rgba(89, 107, 120, .78)); color: #071E32; }
+
+.inspection-editor-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.inspection-editor-actions button {
+  min-height: clamp(58px, 8vh, 76px);
+  border-radius: 20px;
+  font-size: clamp(15px, 1.8vw, 21px);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editor-nav-button {
+  background: linear-gradient(135deg, #007FB6, #003B67);
+}
+
+.editor-lock-button {
+  background: linear-gradient(135deg, #D95E44, #F57E3D);
+}
+
+.editor-exit-button {
+  background: linear-gradient(135deg, #C92F5C, #D95E44);
+}
+
+@media (max-width: 920px) {
+  .inspection-editor-panel {
+    width: 100%;
+    height: calc(100dvh - 16px);
+    border-radius: 24px;
+  }
+  .inspection-editor-header {
+    grid-template-columns: 1fr;
+    padding-right: 58px;
+  }
+  .inspection-editor-meta {
+    grid-template-columns: 1fr;
+  }
+  .inspection-editor-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .inspection-editor-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .inspection-editor-overlay {
+    padding: 0;
+  }
+  .inspection-editor-panel {
+    height: 100dvh;
+    border-radius: 0;
+    padding: 16px 12px 20px;
+  }
+  .inspection-editor-close {
+    top: 10px;
+    right: 10px;
+    width: 46px;
+    height: 46px;
+  }
+  .inspection-editor-header {
+    padding-right: 52px;
+  }
+  .inspection-editor-status-grid,
+  .inspection-editor-actions {
+    grid-template-columns: 1fr;
+  }
+  .editor-status-button {
+    min-height: 86px;
+    border-radius: 20px;
+  }
+  .inspection-editor-actions button {
+    min-height: 62px;
+  }
+}

@@ -877,11 +877,21 @@ export default function App() {
   const [dashboardStart, setDashboardStart] = useState('')
   const [dashboardEnd, setDashboardEnd] = useState('')
   const [conditionFilter, setConditionFilter] = useState('all')
+  const [inspectionEditor, setInspectionEditor] = useState(null)
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme)
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    if (!inspectionEditor) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [inspectionEditor])
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -976,7 +986,7 @@ export default function App() {
       conditions[sleeper.id] = normalizeStatus(previous?.conditions?.[sleeper.id] || DEFAULT_STATUS)
     })
     setTracks((current) => current.map((track) => track.id === selectedTrack.id
-      ? { ...track, inspections: [...track.inspections, { id: uid('insp'), date: newInspectionDate || today(), notes: 'Nova ida ao trecho', conditions, locked: false }] }
+      ? { ...track, inspections: [...track.inspections, { id: uid('insp'), date: newInspectionDate || today(), notes: 'Nova ida ao trecho', conditions, locked: true }] }
       : track
     ))
   }
@@ -1004,6 +1014,46 @@ export default function App() {
             if (inspection.id !== inspectionId || inspection.locked) return inspection
             return { ...inspection, conditions: { ...inspection.conditions, [sleeperId]: status } }
           })
+        }
+      : track
+    ))
+  }
+
+  function openInspectionEditor(inspectionId, sleeperIndex = 0) {
+    if (!selectedTrack?.sleepers?.length) return
+    updateInspection(inspectionId, { locked: false })
+    setInspectionEditor({
+      inspectionId,
+      sleeperIndex: Math.max(0, Math.min(Number(sleeperIndex) || 0, selectedTrack.sleepers.length - 1))
+    })
+  }
+
+  function closeInspectionEditor({ lock = true } = {}) {
+    if (inspectionEditor?.inspectionId && lock) {
+      updateInspection(inspectionEditor.inspectionId, { locked: true })
+    }
+    setInspectionEditor(null)
+  }
+
+  function moveInspectionEditor(delta) {
+    setInspectionEditor((current) => {
+      if (!current || !selectedTrack?.sleepers?.length) return current
+      const nextIndex = Math.max(0, Math.min(current.sleeperIndex + delta, selectedTrack.sleepers.length - 1))
+      return { ...current, sleeperIndex: nextIndex }
+    })
+  }
+
+  function updateEditorCell(status) {
+    if (!inspectionEditor || !selectedTrack?.sleepers?.length) return
+    const sleeper = selectedTrack.sleepers[Math.max(0, Math.min(inspectionEditor.sleeperIndex, selectedTrack.sleepers.length - 1))]
+    if (!sleeper) return
+    setTracks((current) => current.map((track) => track.id === selectedTrack.id
+      ? {
+          ...track,
+          inspections: track.inspections.map((inspection) => inspection.id === inspectionEditor.inspectionId
+            ? { ...inspection, conditions: { ...inspection.conditions, [sleeper.id]: status }, locked: false }
+            : inspection
+          )
         }
       : track
     ))
@@ -1139,6 +1189,19 @@ export default function App() {
     { id: 'procedimentos', label: 'Procedimentos', icon: BookOpen }
   ]
 
+  const editorInspection = inspectionEditor
+    ? selectedTrack?.inspections?.find((inspection) => inspection.id === inspectionEditor.inspectionId)
+    : null
+  const editorSleeperCount = selectedTrack?.sleepers?.length || 0
+  const editorSleeperIndex = editorSleeperCount
+    ? Math.max(0, Math.min(inspectionEditor?.sleeperIndex || 0, editorSleeperCount - 1))
+    : 0
+  const editorSleeper = editorSleeperCount ? selectedTrack.sleepers[editorSleeperIndex] : null
+  const editorCurrentStatus = editorInspection && editorSleeper
+    ? normalizeStatus(editorInspection.conditions?.[editorSleeper.id] || DEFAULT_STATUS)
+    : DEFAULT_STATUS
+  const editorProgress = editorSleeperCount ? Math.round(((editorSleeperIndex + 1) / editorSleeperCount) * 100) : 0
+
   return (
     <main className="app">
       <div className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
@@ -1208,6 +1271,60 @@ export default function App() {
         </div>
       </section>
 
+      {inspectionEditor && editorInspection && editorSleeper && (
+        <div className="inspection-editor-overlay no-print" role="dialog" aria-modal="true" aria-label="Modo de edição da linha">
+          <section className="inspection-editor-panel">
+            <button className="inspection-editor-close" onClick={() => closeInspectionEditor({ lock: true })} aria-label="Sair da edição"><X size={24} /></button>
+            <div className="inspection-editor-header">
+              <div>
+                <span className="section-kicker">Edição ampliada</span>
+                <h2>Modo de edição da linha</h2>
+                <p>Use os botões grandes para marcar a condição do dormente sem sofrer no celular.</p>
+              </div>
+              <div className="inspection-editor-progress">
+                <strong>Dormente {editorSleeperIndex + 1} de {editorSleeperCount}</strong>
+                <span>{editorSleeper.id}</span>
+                <div className="progress-track"><i style={{ width: `${editorProgress}%` }} /></div>
+              </div>
+            </div>
+
+            <div className="inspection-editor-meta">
+              <label><CalendarDays size={18} /> Data da linha<input type="date" value={editorInspection.date} onChange={(e) => updateInspection(editorInspection.id, { date: e.target.value })} onClick={(e) => e.currentTarget.showPicker?.()} /></label>
+              <label><ClipboardList size={18} /> Observação<input value={editorInspection.notes} onChange={(e) => updateInspection(editorInspection.id, { notes: e.target.value })} placeholder="Observação da inspeção" /></label>
+            </div>
+
+            <div className="inspection-editor-box">
+              <div className="inspection-editor-current">
+                <span>Dormente atual</span>
+                <strong>{editorSleeper.id}</strong>
+                <em>{STATUS[editorCurrentStatus].label}</em>
+              </div>
+              <div className="inspection-editor-status-grid">
+                {Object.entries(STATUS).map(([statusKey, status]) => (
+                  <button
+                    key={statusKey}
+                    className={`editor-status-button ${status.className} ${editorCurrentStatus === statusKey ? 'selected' : ''}`}
+                    onClick={() => updateEditorCell(statusKey)}
+                    type="button"
+                  >
+                    <span>{status.short}</span>
+                    <strong>{status.label}</strong>
+                    {editorCurrentStatus === statusKey && <small><CheckCircle2 size={18} /> Selecionado</small>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="inspection-editor-actions">
+              <button className="outline editor-nav-button" onClick={() => moveInspectionEditor(-1)} disabled={editorSleeperIndex === 0}>← Anterior</button>
+              <button className="editor-nav-button" onClick={() => moveInspectionEditor(1)} disabled={editorSleeperIndex >= editorSleeperCount - 1}>Próximo →</button>
+              <button className="editor-lock-button" onClick={() => closeInspectionEditor({ lock: true })}><Lock size={20} /> Bloquear novamente</button>
+              <button className="danger editor-exit-button" onClick={() => closeInspectionEditor({ lock: true })}><X size={20} /> Sair da edição</button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <section className="content">
         {activeTab === 'trechos' && (
           <section className="panel no-print">
@@ -1239,7 +1356,6 @@ export default function App() {
                   <label>Malha<select value={selectedTrack.malha || ''} onChange={(e) => updateTrack({ malha: e.target.value })}><option value="">Selecione</option><option>Ferronorte</option><option>Malha Central</option><option>Malha Paulista</option><option>Outra</option></select></label>
                   <label>Material<select value={selectedTrack.sleeperMaterial || ''} onChange={(e) => updateTrack({ sleeperMaterial: e.target.value })}><option value="">Selecione</option><option value="concreto">Concreto</option><option value="madeira">Madeira</option><option value="aco">Aço</option><option value="polimero">Polímero</option></select></label>
                   <label>Traçado<select value={selectedTrack.geometryType || ''} onChange={(e) => updateTrack({ geometryType: e.target.value })}><option value="">Selecione</option><option value="tangente">Tangente</option><option value="curva">Curva</option></select></label>
-                  <label>Sentido / lado<input value={selectedTrack.direction || ''} onChange={(e) => updateTrack({ direction: e.target.value })} placeholder="Ex.: Carregado curva direita / Sent. crescente" /></label>
                   <label>Cenário 1 - KM inicial<input value={selectedTrack.kmStart || ''} onChange={(e) => updateTrack({ kmStart: e.target.value })} /></label>
                   <label>Cenário 1 - KM Final<input value={selectedTrack.kmEnd || ''} onChange={(e) => updateTrack({ kmEnd: e.target.value })} /></label>
                   <label>Cenário 2 - KM inicial<input value={selectedTrack.kmStartScenario2 || ''} onChange={(e) => updateTrack({ kmStartScenario2: e.target.value })} /></label>
@@ -1301,8 +1417,8 @@ export default function App() {
                     {[...selectedTrack.inspections].sort((a, b) => parseDate(a.date) - parseDate(b.date)).map((inspection) => (
                       <tr key={inspection.id} className={inspection.locked ? 'locked-row' : 'editing-row'}>
                         <td className="sticky-col action-cell">
-                          <button className={inspection.locked ? 'outline' : 'success'} onClick={() => updateInspection(inspection.id, { locked: !inspection.locked })}>
-                            {inspection.locked ? <Pencil size={15} /> : <Lock size={15} />} {inspection.locked ? 'Editar' : 'Bloquear'}
+                          <button className={inspection.locked ? 'outline' : 'success'} onClick={() => openInspectionEditor(inspection.id)}>
+                            <Pencil size={15} /> Editar
                           </button>
                         </td>
                         <td><input type="date" disabled={inspection.locked} value={inspection.date} onChange={(e) => updateInspection(inspection.id, { date: e.target.value })} onClick={(e) => e.currentTarget.showPicker?.()} /></td>
@@ -1313,7 +1429,7 @@ export default function App() {
                             <td key={sleeper.id}>
                               <div className="cell-stack">
                                 {Object.entries(STATUS).map(([statusKey, status]) => (
-                                  <button key={statusKey} disabled={inspection.locked} className={`cell-option ${status.className} ${current === statusKey ? 'active' : ''}`} onClick={() => updateCell(inspection.id, sleeper.id, statusKey)} title={status.label}>{status.short}</button>
+                                  <button key={statusKey} className={`cell-option ${status.className} ${current === statusKey ? 'active' : ''}`} onClick={() => openInspectionEditor(inspection.id, sleeper.number - 1)} title={`${sleeper.id} · ${status.label}`}>{status.short}</button>
                                 ))}
                               </div>
                             </td>
