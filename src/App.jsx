@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -16,7 +16,6 @@ import {
   Moon,
   Pencil,
   Plus,
-  Save,
   Sun,
   Train,
   TrendingUp,
@@ -885,6 +884,10 @@ export default function App() {
   const [savedAt, setSavedAt] = useState('')
   const [syncStatus, setSyncStatus] = useState(() => isSupabaseConfigured() ? 'Conectando ao Supabase...' : 'Supabase não configurado: salvamento local ativo.')
   const [syncError, setSyncError] = useState('')
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false)
+  const lastAutoSaveJsonRef = useRef('')
+  const autoSaveTimerRef = useRef(null)
+  const autoSaveQueueRef = useRef({ saving: false, pending: null })
   const [dashboardTrack, setDashboardTrack] = useState('all')
   const [dashboardStart, setDashboardStart] = useState('')
   const [dashboardEnd, setDashboardEnd] = useState('')
@@ -910,11 +913,20 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
 
+    function rememberAutoSaveSnapshot(nextTracks, nextSelectedTrackId) {
+      lastAutoSaveJsonRef.current = JSON.stringify({
+        tracks: nextTracks,
+        selectedTrackId: nextSelectedTrackId || nextTracks[0]?.id || ''
+      })
+    }
+
     function applySavedData(data) {
       if (!Array.isArray(data?.tracks) || !data.tracks.length) return false
       const nextTracks = data.tracks.map(ensureTrackShape)
+      const nextSelectedTrackId = data.selectedTrackId || nextTracks[0].id
+      rememberAutoSaveSnapshot(nextTracks, nextSelectedTrackId)
       setTracks(nextTracks)
-      setSelectedTrackId(data.selectedTrackId || nextTracks[0].id)
+      setSelectedTrackId(nextSelectedTrackId)
       setSavedAt(data.savedAt || '')
       return true
     }
@@ -928,7 +940,7 @@ export default function App() {
           setSyncStatus('Erro ao carregar do Supabase. Usando dados locais deste navegador.')
           setSyncError(remote.error.message || String(remote.error))
         } else if (remote.configured && applySavedData(remote.data)) {
-          setSyncStatus('Dados carregados do Supabase.')
+          setSyncStatus('Dados carregados do Supabase. Salvamento automático ativo.')
           setSyncError('')
           return
         }
@@ -936,21 +948,28 @@ export default function App() {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) {
           setSyncStatus(remote.configured
-            ? 'Supabase conectado. Nenhum dado remoto encontrado ainda.'
-            : 'Supabase não configurado: salvamento local ativo.')
+            ? 'Supabase conectado. Salvamento automático ativo.'
+            : 'Supabase não configurado: salvamento automático local ativo.')
           return
         }
 
         const localData = JSON.parse(raw)
         if (applySavedData(localData)) {
           setSyncStatus(remote.configured
-            ? 'Dados locais carregados. Clique em Salvar para enviar ao Supabase.'
-            : 'Dados locais carregados neste navegador.')
+            ? 'Dados locais carregados. A próxima alteração será enviada automaticamente ao Supabase.'
+            : 'Dados locais carregados neste navegador. Salvamento automático local ativo.')
         }
       } catch (error) {
         if (cancelled) return
         setSyncStatus('Erro ao iniciar os dados. Verifique a configuração do Supabase.')
         setSyncError(error.message || String(error))
+      } finally {
+        if (!cancelled) {
+          if (!lastAutoSaveJsonRef.current) {
+            rememberAutoSaveSnapshot(tracks, selectedTrackId || tracks[0]?.id || '')
+          }
+          setInitialDataLoaded(true)
+        }
       }
     }
 
@@ -963,6 +982,38 @@ export default function App() {
   useEffect(() => {
     if (!selectedTrackId && tracks.length) setSelectedTrackId(tracks[0].id)
   }, [tracks, selectedTrackId])
+
+  useEffect(() => {
+    if (!initialDataLoaded) return undefined
+
+    const effectiveSelectedTrackId = selectedTrackId || tracks[0]?.id || ''
+    const json = JSON.stringify({ tracks, selectedTrackId: effectiveSelectedTrackId })
+    if (json === lastAutoSaveJsonRef.current) return undefined
+
+    setSyncStatus(isSupabaseConfigured()
+      ? 'Alteração detectada. Salvando automaticamente...'
+      : 'Alteração detectada. Salvando automaticamente neste navegador...')
+    setSyncError('')
+
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current)
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      autoSaveQueueRef.current.pending = {
+        tracks,
+        selectedTrackId: effectiveSelectedTrackId,
+        json
+      }
+      processAutoSaveQueue()
+    }, 700)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [tracks, selectedTrackId, initialDataLoaded])
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) || tracks[0]
   const selectedAnalysis = useMemo(() => analyzeTrack(selectedTrack), [selectedTrack])
@@ -1163,24 +1214,51 @@ export default function App() {
     updateTrack({ fissureRecords: (selectedTrack.fissureRecords || []).filter((record) => record.id !== recordId) })
   }
 
-  async function saveData() {
+  async function persistSnapshot(snapshot) {
     const timestamp = new Date().toLocaleString('pt-BR')
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tracks, selectedTrackId, savedAt: timestamp }))
+    const payload = {
+      tracks: snapshot.tracks,
+      selectedTrackId: snapshot.selectedTrackId,
+      savedAt: timestamp
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     setSavedAt(timestamp)
 
-    const result = await saveAppState({ tracks, selectedTrackId, savedAt: timestamp })
+    const result = await saveAppState(payload)
     if (!result.configured) {
-      setSyncStatus('Salvo neste navegador. Configure o Supabase para salvar na nuvem.')
+      setSyncStatus('Alteração salva automaticamente neste navegador. Configure o Supabase para salvar na nuvem.')
       setSyncError('')
-      return
+      return true
     }
     if (result.error) {
-      setSyncStatus('Salvo neste navegador, mas falhou ao enviar para o Supabase.')
+      setSyncStatus('Alteração salva neste navegador, mas falhou ao enviar para o Supabase.')
       setSyncError(result.error.message || String(result.error))
-      return
+      return false
     }
-    setSyncStatus('Salvo no Supabase e neste navegador.')
+    setSyncStatus('Alteração salva automaticamente no Supabase e neste navegador.')
     setSyncError('')
+    return true
+  }
+
+  async function processAutoSaveQueue() {
+    if (autoSaveQueueRef.current.saving) return
+
+    const snapshot = autoSaveQueueRef.current.pending
+    if (!snapshot) return
+
+    autoSaveQueueRef.current.pending = null
+    autoSaveQueueRef.current.saving = true
+
+    const success = await persistSnapshot(snapshot)
+    if (success) {
+      lastAutoSaveJsonRef.current = snapshot.json
+    }
+
+    autoSaveQueueRef.current.saving = false
+    if (autoSaveQueueRef.current.pending) {
+      processAutoSaveQueue()
+    }
   }
 
   async function clearData() {
@@ -1421,13 +1499,12 @@ export default function App() {
 
       <section className="quick-save no-print">
         <div>
-          <strong>{savedAt ? `Último salvamento: ${savedAt}` : 'Dados ainda não salvos nesta sessão'}</strong>
-          <p>Os dados ficam neste navegador e, com Supabase configurado, também na nuvem. Salve depois de registrar ou editar inspeções.</p>
+          <strong>{savedAt ? `Último salvamento automático: ${savedAt}` : 'Salvamento automático ativo'}</strong>
+          <p>Qualquer alteração feita no sistema é salva automaticamente neste navegador e, com Supabase configurado, também na nuvem.</p>
           <p className="sync-status">{syncStatus}</p>
           {syncError && <p className="sync-error">Erro: {syncError}</p>}
         </div>
         <div className="actions">
-          <button onClick={saveData}><Save size={16} /> Salvar</button>
           <button className="outline" onClick={clearData}>Limpar dados</button>
         </div>
       </section>
