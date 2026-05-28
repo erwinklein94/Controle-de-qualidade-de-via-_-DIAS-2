@@ -183,6 +183,13 @@ const DEFAULT_HARDSCAN_LIMITS = {
 const today = () => new Date().toISOString().slice(0, 10)
 const parseDate = (date) => new Date(`${date || today()}T00:00:00`)
 const formatDate = (date) => date ? date.split('-').reverse().join('/') : ''
+const normalizeDateValue = (value) => {
+  if (!value) return ''
+  const text = String(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text
+  if (/^\d{4}$/.test(text)) return `${text}-01-01`
+  return ''
+}
 const daysBetween = (start, end) => Math.max(1, Math.round((parseDate(end) - parseDate(start)) / 86400000))
 
 
@@ -280,6 +287,8 @@ function createTrack(name = 'Novo trecho', count = 0) {
     responsible: '',
     kmStart: '',
     kmEnd: '',
+    kmStartScenario2: '',
+    kmEndScenario2: '',
     sleeperMaterial: '',
     geometryType: '',
     trackClass: '',
@@ -288,6 +297,7 @@ function createTrack(name = 'Novo trecho', count = 0) {
     hasGaugeLoss: '',
     hasSupportLoss: '',
     prospectionYear: '',
+    inspectionDate: '',
     prospectionCount: '',
     inservivelProspection: '',
     referenceCriticalRate: '',
@@ -309,6 +319,7 @@ function ensureTrackShape(track, index = 0) {
     ...createTrack(`Trecho ${index + 1}`, sleeperCount),
     ...track,
     sleeperCount: sleeperCount || '',
+    inspectionDate: normalizeDateValue(track?.inspectionDate || track?.prospectionYear),
     sleepers,
     inspections: inspections.map((inspection) => ({
       id: inspection.id || uid('insp'),
@@ -743,10 +754,12 @@ function buildInspectionGradeHtml(track, mode = 'pdf') {
       <body>
         <h1>${title}</h1>
         <div class="meta">
-          <p><strong>Trecho:</strong> ${escapeExcel(track.name)}</p>
-          <p><strong>KM:</strong> ${escapeExcel(track.kmStart)} até ${escapeExcel(track.kmEnd)}</p>
+          <p><strong>Ponto de monitoramento:</strong> ${escapeExcel(track.name)}</p>
+          <p><strong>Cenário 1:</strong> ${escapeExcel(track.kmStart)} até ${escapeExcel(track.kmEnd)}</p>
+          <p><strong>Cenário 2:</strong> ${escapeExcel(track.kmStartScenario2 || '')} até ${escapeExcel(track.kmEndScenario2 || '')}</p>
+          <p><strong>Data da inspeção:</strong> ${escapeExcel(formatDate(track.inspectionDate || ''))}</p>
           <p><strong>Malha:</strong> ${escapeExcel(track.malha)} &nbsp; <strong>Equipamento:</strong> ${escapeExcel(track.equipment)}</p>
-          <p><strong>Responsável:</strong> ${escapeExcel(track.responsible)} &nbsp; <strong>Material:</strong> ${escapeExcel(track.sleeperMaterial)}</p>
+          <p><strong>Inspetor:</strong> ${escapeExcel(track.responsible)} &nbsp; <strong>Material:</strong> ${escapeExcel(track.sleeperMaterial)}</p>
         </div>
         <div class="legend">${legend}</div>
         <h2>Grade de inspeção</h2>
@@ -1221,21 +1234,19 @@ export default function App() {
               </aside>
               <div className="track-form">
                 <div className="form-grid form-grid-expanded">
-                  <label>Nome do trecho<input value={selectedTrack.name} onChange={(e) => updateTrack({ name: e.target.value })} /></label>
+                  <label>Ponto de monitoramento<input value={selectedTrack.name} onChange={(e) => updateTrack({ name: e.target.value })} /></label>
                   <label>Ponto padrão<input value={selectedTrack.pointCode || ''} onChange={(e) => updateTrack({ pointCode: e.target.value })} placeholder="Ex.: P1, 04, km 169" /></label>
                   <label>Equipamento / segmento<input value={selectedTrack.equipment || ''} onChange={(e) => updateTrack({ equipment: e.target.value })} placeholder="Ex.: 031+470 ao 031+570" /></label>
-                  <label>Responsável / equipe<input value={selectedTrack.responsible || ''} onChange={(e) => updateTrack({ responsible: e.target.value })} /></label>
+                  <label>Inspetor<input value={selectedTrack.responsible || ''} onChange={(e) => updateTrack({ responsible: e.target.value })} /></label>
                   <label>Malha<select value={selectedTrack.malha || ''} onChange={(e) => updateTrack({ malha: e.target.value })}><option value="">Selecione</option><option>Ferronorte</option><option>Malha Central</option><option>Malha Paulista</option><option>Outra</option></select></label>
                   <label>Material<select value={selectedTrack.sleeperMaterial || ''} onChange={(e) => updateTrack({ sleeperMaterial: e.target.value })}><option value="">Selecione</option><option value="concreto">Concreto</option><option value="madeira">Madeira</option><option value="aco">Aço</option><option value="polimero">Polímero</option></select></label>
                   <label>Traçado<select value={selectedTrack.geometryType || ''} onChange={(e) => updateTrack({ geometryType: e.target.value })}><option value="">Selecione</option><option value="tangente">Tangente</option><option value="curva">Curva</option></select></label>
                   <label>Sentido / lado<input value={selectedTrack.direction || ''} onChange={(e) => updateTrack({ direction: e.target.value })} placeholder="Ex.: Carregado curva direita / Sent. crescente" /></label>
-                  <label>Classe<input value={selectedTrack.trackClass || ''} onChange={(e) => updateTrack({ trackClass: e.target.value })} placeholder="Classe da via" /></label>
-                  <label>KM inicial<input value={selectedTrack.kmStart || ''} onChange={(e) => updateTrack({ kmStart: e.target.value })} /></label>
-                  <label>KM final<input value={selectedTrack.kmEnd || ''} onChange={(e) => updateTrack({ kmEnd: e.target.value })} /></label>
-                  <label>Ano prospecção<input value={selectedTrack.prospectionYear || ''} onChange={(e) => updateTrack({ prospectionYear: e.target.value })} placeholder="2024 ou 2025" /></label>
-                  <label>Dormentes prospectados<input type="number" min="0" value={selectedTrack.prospectionCount || ''} onChange={(e) => updateTrack({ prospectionCount: e.target.value })} /></label>
-                  <label>Inservíveis na prospecção<input type="number" min="0" value={selectedTrack.inservivelProspection || ''} onChange={(e) => updateTrack({ inservivelProspection: e.target.value })} /></label>
-                  <label>Taxa ref. inservíveis (%)<input type="number" min="0" step="0.1" value={selectedTrack.referenceCriticalRate || ''} onChange={(e) => updateTrack({ referenceCriticalRate: e.target.value })} /></label>
+                  <label>Cenário 1 - KM inicial<input value={selectedTrack.kmStart || ''} onChange={(e) => updateTrack({ kmStart: e.target.value })} /></label>
+                  <label>Cenário 1 - KM Final<input value={selectedTrack.kmEnd || ''} onChange={(e) => updateTrack({ kmEnd: e.target.value })} /></label>
+                  <label>Cenário 2 - KM inicial<input value={selectedTrack.kmStartScenario2 || ''} onChange={(e) => updateTrack({ kmStartScenario2: e.target.value })} /></label>
+                  <label>Cenário 2 - KM Final<input value={selectedTrack.kmEndScenario2 || ''} onChange={(e) => updateTrack({ kmEndScenario2: e.target.value })} /></label>
+                  <label>Data da inspeção<input type="date" value={selectedTrack.inspectionDate || ''} onChange={(e) => updateTrack({ inspectionDate: e.target.value })} onClick={(e) => e.currentTarget.showPicker?.()} /></label>
                   <label>Quantidade de dormentes<span className="input-with-button"><input type="number" min="1" max="300" value={selectedTrack.sleeperCount} onChange={(e) => updateTrack({ sleeperCount: e.target.value })} /><button onClick={applySleeperCount}>Aplicar</button></span></label>
                 </div>
                 <label className="full-label compact-notes">Observações do local<textarea rows={2} placeholder="Observações rápidas do local" value={selectedTrack.notes || ''} onChange={(e) => updateTrack({ notes: e.target.value })} /></label>

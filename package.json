@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build && node scripts/prepare-pages.mjs",
+    "dev": "node scripts/write-vite-index.mjs && vite --host 0.0.0.0",
+    "build": "node scripts/write-vite-index.mjs && vite build && node scripts/prepare-pages.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "build:vite": "vite build"
+    "build:vite": "node scripts/write-vite-index.mjs && vite build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.1",
