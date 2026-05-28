@@ -32,6 +32,11 @@ jobs:
 
       - name: Build static site
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://lbvytbarhuhxmtstepde.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_YJuH9ZEmwPUjJQtwgz2__w_L7ClGkA7
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_YJuH9ZEmwPUjJQtwgz2__w_L7ClGkA7
+          VITE_SUPABASE_APP_KEY: dormentes-main
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

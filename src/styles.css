@@ -1682,3 +1682,15 @@ td {
   white-space: nowrap;
 }
 .history-empty { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+
+.sync-status {
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.sync-error {
+  margin-top: 6px;
+  color: #d95e44;
+  font-weight: 700;
+  word-break: break-word;
+}

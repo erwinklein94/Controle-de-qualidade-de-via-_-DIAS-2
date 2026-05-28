@@ -37,6 +37,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
+import { isSupabaseConfigured, loadAppState, saveAppState } from './supabaseClient.js'
 
 const STORAGE_KEY = 'sistema-dormentes-rumo-v3-zerado'
 const THEME_KEY = 'sistema-dormentes-rumo-theme'
@@ -882,6 +883,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light')
   const [savedAt, setSavedAt] = useState('')
+  const [syncStatus, setSyncStatus] = useState(() => isSupabaseConfigured() ? 'Conectando ao Supabase...' : 'Supabase não configurado: salvamento local ativo.')
+  const [syncError, setSyncError] = useState('')
   const [dashboardTrack, setDashboardTrack] = useState('all')
   const [dashboardStart, setDashboardStart] = useState('')
   const [dashboardEnd, setDashboardEnd] = useState('')
@@ -905,18 +908,55 @@ export default function App() {
   }, [inspectionEditor])
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    try {
-      const data = JSON.parse(raw)
-      if (Array.isArray(data.tracks) && data.tracks.length) {
-        const nextTracks = data.tracks.map(ensureTrackShape)
-        setTracks(nextTracks)
-        setSelectedTrackId(data.selectedTrackId || nextTracks[0].id)
-        setSavedAt(data.savedAt || '')
+    let cancelled = false
+
+    function applySavedData(data) {
+      if (!Array.isArray(data?.tracks) || !data.tracks.length) return false
+      const nextTracks = data.tracks.map(ensureTrackShape)
+      setTracks(nextTracks)
+      setSelectedTrackId(data.selectedTrackId || nextTracks[0].id)
+      setSavedAt(data.savedAt || '')
+      return true
+    }
+
+    async function loadInitialData() {
+      try {
+        const remote = await loadAppState()
+        if (cancelled) return
+
+        if (remote.configured && remote.error) {
+          setSyncStatus('Erro ao carregar do Supabase. Usando dados locais deste navegador.')
+          setSyncError(remote.error.message || String(remote.error))
+        } else if (remote.configured && applySavedData(remote.data)) {
+          setSyncStatus('Dados carregados do Supabase.')
+          setSyncError('')
+          return
+        }
+
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) {
+          setSyncStatus(remote.configured
+            ? 'Supabase conectado. Nenhum dado remoto encontrado ainda.'
+            : 'Supabase não configurado: salvamento local ativo.')
+          return
+        }
+
+        const localData = JSON.parse(raw)
+        if (applySavedData(localData)) {
+          setSyncStatus(remote.configured
+            ? 'Dados locais carregados. Clique em Salvar para enviar ao Supabase.'
+            : 'Dados locais carregados neste navegador.')
+        }
+      } catch (error) {
+        if (cancelled) return
+        setSyncStatus('Erro ao iniciar os dados. Verifique a configuração do Supabase.')
+        setSyncError(error.message || String(error))
       }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY)
+    }
+
+    loadInitialData()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -1123,13 +1163,27 @@ export default function App() {
     updateTrack({ fissureRecords: (selectedTrack.fissureRecords || []).filter((record) => record.id !== recordId) })
   }
 
-  function saveData() {
+  async function saveData() {
     const timestamp = new Date().toLocaleString('pt-BR')
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ tracks, selectedTrackId, savedAt: timestamp }))
     setSavedAt(timestamp)
+
+    const result = await saveAppState({ tracks, selectedTrackId, savedAt: timestamp })
+    if (!result.configured) {
+      setSyncStatus('Salvo neste navegador. Configure o Supabase para salvar na nuvem.')
+      setSyncError('')
+      return
+    }
+    if (result.error) {
+      setSyncStatus('Salvo neste navegador, mas falhou ao enviar para o Supabase.')
+      setSyncError(result.error.message || String(result.error))
+      return
+    }
+    setSyncStatus('Salvo no Supabase e neste navegador.')
+    setSyncError('')
   }
 
-  function clearData() {
+  async function clearData() {
     const emptyTrack = createTrack()
     localStorage.removeItem(STORAGE_KEY)
     setTracks([emptyTrack])
@@ -1140,6 +1194,20 @@ export default function App() {
     setConditionFilter('all')
     setSavedAt('')
     setActiveTab('trechos')
+
+    const result = await saveAppState({ tracks: [emptyTrack], selectedTrackId: emptyTrack.id, savedAt: '' })
+    if (!result.configured) {
+      setSyncStatus('Dados locais limpos. Supabase ainda não configurado.')
+      setSyncError('')
+      return
+    }
+    if (result.error) {
+      setSyncStatus('Dados locais limpos, mas falhou ao atualizar o Supabase.')
+      setSyncError(result.error.message || String(result.error))
+      return
+    }
+    setSyncStatus('Dados limpos no Supabase e neste navegador.')
+    setSyncError('')
   }
 
   function exportExcel() {
@@ -1354,7 +1422,9 @@ export default function App() {
       <section className="quick-save no-print">
         <div>
           <strong>{savedAt ? `Último salvamento: ${savedAt}` : 'Dados ainda não salvos nesta sessão'}</strong>
-          <p>Os dados ficam neste navegador. Salve depois de registrar ou editar inspeções.</p>
+          <p>Os dados ficam neste navegador e, com Supabase configurado, também na nuvem. Salve depois de registrar ou editar inspeções.</p>
+          <p className="sync-status">{syncStatus}</p>
+          {syncError && <p className="sync-error">Erro: {syncError}</p>}
         </div>
         <div className="actions">
           <button onClick={saveData}><Save size={16} /> Salvar</button>

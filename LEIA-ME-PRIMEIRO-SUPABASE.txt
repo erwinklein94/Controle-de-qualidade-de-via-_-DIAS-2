@@ -1,0 +1,22 @@
+PASSO A PASSO RAPIDO
+
+1) Abra o Supabase.
+2) Va em SQL Editor.
+3) Clique em New query.
+4) Abra neste projeto o arquivo: supabase/schema.sql
+5) Copie tudo, cole no SQL Editor e clique em Run.
+6) Depois rode o projeto:
+
+   npm install
+   npm run dev
+
+7) No site, clique em Salvar para mandar os dados ao Supabase.
+
+O projeto ja esta com estes arquivos configurados:
+- .env.local
+- .env.production
+- src/supabaseClient.js
+- .github/workflows/deploy.yml
+- supabase/schema.sql
+
+Importante: nao use service_role, secret key ou sb_secret no frontend.
