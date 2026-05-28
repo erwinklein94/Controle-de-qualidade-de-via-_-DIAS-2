@@ -1235,8 +1235,6 @@ export default function App() {
               <div className="track-form">
                 <div className="form-grid form-grid-expanded">
                   <label>Ponto de monitoramento<input value={selectedTrack.name} onChange={(e) => updateTrack({ name: e.target.value })} /></label>
-                  <label>Ponto padrão<input value={selectedTrack.pointCode || ''} onChange={(e) => updateTrack({ pointCode: e.target.value })} placeholder="Ex.: P1, 04, km 169" /></label>
-                  <label>Equipamento / segmento<input value={selectedTrack.equipment || ''} onChange={(e) => updateTrack({ equipment: e.target.value })} placeholder="Ex.: 031+470 ao 031+570" /></label>
                   <label>Inspetor<input value={selectedTrack.responsible || ''} onChange={(e) => updateTrack({ responsible: e.target.value })} /></label>
                   <label>Malha<select value={selectedTrack.malha || ''} onChange={(e) => updateTrack({ malha: e.target.value })}><option value="">Selecione</option><option>Ferronorte</option><option>Malha Central</option><option>Malha Paulista</option><option>Outra</option></select></label>
                   <label>Material<select value={selectedTrack.sleeperMaterial || ''} onChange={(e) => updateTrack({ sleeperMaterial: e.target.value })}><option value="">Selecione</option><option value="concreto">Concreto</option><option value="madeira">Madeira</option><option value="aco">Aço</option><option value="polimero">Polímero</option></select></label>
