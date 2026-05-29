@@ -49,8 +49,8 @@ const STATUS = {
     score: 100,
     severity: 0,
     className: 'status-bom-azul',
-    color: '#007FB6',
-    textColor: '#ffffff',
+    color: '#32A6E6',
+    textColor: '#052A52',
     description: 'Dormente novo ou recentemente substituído, em condição boa de suporte e fixação, identificado pela sigla A e pela marcação azul.'
   },
   bom_verde_antigo: {
@@ -60,7 +60,7 @@ const STATUS = {
     score: 100,
     severity: 0,
     className: 'status-bom-verde',
-    color: '#00B96B',
+    color: '#1E9F7F',
     textColor: '#ffffff',
     description: 'Dormente antigo, porém em condição boa de suporte e fixação, identificado pela sigla G e pela marcação verde.'
   },
@@ -71,7 +71,7 @@ const STATUS = {
     score: 75,
     severity: 1,
     className: 'status-regular-l1',
-    color: '#FFEA73',
+    color: '#FFE173',
     textColor: '#111111',
     description: 'Dormente com degradação leve, ainda funcional, exigindo acompanhamento da evolução.'
   },
@@ -82,7 +82,7 @@ const STATUS = {
     score: 50,
     severity: 2,
     className: 'status-regular-l2',
-    color: '#FFDD00',
+    color: '#FBD300',
     textColor: '#111111',
     description: 'Dormente com degradação moderada, exigindo atenção e comparação nas próximas inspeções.'
   },
@@ -93,7 +93,7 @@ const STATUS = {
     score: 25,
     severity: 3,
     className: 'status-regular-l3',
-    color: '#b88900',
+    color: '#B88900',
     textColor: '#ffffff',
     description: 'Dormente com degradação acentuada, próximo da condição inservível e com prioridade de acompanhamento.'
   },
@@ -104,7 +104,7 @@ const STATUS = {
     score: 0,
     severity: 4,
     className: 'status-inservivel',
-    color: '#D95E44',
+    color: '#D84545',
     textColor: '#ffffff',
     description: 'Dormente inservível, identificado pela sigla V e pela cor vermelha. Deve entrar em plano de substituição e, na prospecção, recebe uma pintura.'
   },
@@ -115,7 +115,7 @@ const STATUS = {
     score: 0,
     severity: 5,
     className: 'status-ruina',
-    color: '#AEB8C2',
+    color: '#BDCCD4',
     textColor: '#111111',
     description: 'Dormente em ruína, identificado pela sigla R e pela cor cinza. Na prospecção, recebe duas pinturas.'
   }
@@ -129,45 +129,45 @@ const STATUS_ALIASES = {
 }
 
 const CHART_COLORS = {
-  bom_azul_novo: '#007FB6',
-  bom_verde_antigo: '#00B96B',
-  regular_l1: '#FFEA73',
-  regular_l2: '#FFDD00',
+  bom_azul_novo: '#32A6E6',
+  bom_verde_antigo: '#1E9F7F',
+  regular_l1: '#FFE173',
+  regular_l2: '#FBD300',
   regular_l3: '#B88900',
-  inservivel: '#D95E44',
-  ruina: '#AEB8C2',
-  bom: '#007FB6',
-  regular: '#FFDD00',
-  line: '#007FB6',
-  green: '#00B96B',
-  aqua: '#00A9E0',
-  grid: '#D7E5EF',
+  inservivel: '#D84545',
+  ruina: '#BDCCD4',
+  bom: '#32A6E6',
+  regular: '#FBD300',
+  line: '#003865',
+  green: '#1E9F7F',
+  aqua: '#32A6E6',
+  grid: '#D7E0E5',
   text: '#052A52'
 }
 
 const DARK_CHART_COLORS = {
-  bom_azul_novo: '#55C9F2',
-  bom_verde_antigo: '#52E68F',
-  regular_l1: '#FFF09A',
-  regular_l2: '#FFE45C',
+  bom_azul_novo: '#7CC9F2',
+  bom_verde_antigo: '#7FE06C',
+  regular_l1: '#FFE895',
+  regular_l2: '#FBD300',
   regular_l3: '#D8AD38',
-  inservivel: '#FF8A72',
-  ruina: '#D5DEE6',
-  bom: '#55C9F2',
-  regular: '#FFE45C',
-  line: '#55C9F2',
-  green: '#52E68F',
-  aqua: '#72D9FF',
-  grid: '#274E72',
-  text: '#D7EEFF'
+  inservivel: '#F07A66',
+  ruina: '#BDCCD4',
+  bom: '#7CC9F2',
+  regular: '#FBD300',
+  line: '#7CC9F2',
+  green: '#7FE06C',
+  aqua: '#7CC9F2',
+  grid: '#1B3A57',
+  text: '#E5EBEE'
 }
 
 
 const CLASSIFICATION_COLORS = {
-  'Ótimo': '#00B96B',
+  'Ótimo': '#1E9F7F',
   'Atenção': '#B88900',
-  'Crítico': '#D95E44',
-  'Sem dados': '#7C93A8'
+  'Crítico': '#D84545',
+  'Sem dados': '#6F838E'
 }
 
 
@@ -744,14 +744,14 @@ function buildInspectionGradeHtml(track, mode = 'pdf') {
         <meta charset="UTF-8" />
         <title>${title}</title>
         <style>
-          body { font-family: Arial, sans-serif; color: #123a63; margin: 18px; }
-          h1 { margin: 0 0 8px; color: #083b6e; font-size: 22px; }
-          h2 { margin: 18px 0 8px; color: #083b6e; font-size: 16px; }
+          body { font-family: Arial, sans-serif; color: #003865; margin: 18px; }
+          h1 { margin: 0 0 8px; color: #003865; font-size: 22px; }
+          h2 { margin: 18px 0 8px; color: #003865; font-size: 16px; }
           p { margin: 4px 0; }
           table { border-collapse: collapse; width: 100%; font-size: 11px; }
-          th, td { border: 1px solid #9eb8d2; padding: 6px; white-space: nowrap; }
-          th { background: #eaf3fb; color: #083b6e; font-weight: 800; }
-          .meta { margin: 12px 0 14px; padding: 10px; border: 1px solid #d7e3ef; border-radius: 10px; background: #f6fbff; }
+          th, td { border: 1px solid #CAD6DD; padding: 6px; white-space: nowrap; }
+          th { background: #EAF2F8; color: #003865; font-weight: 800; }
+          .meta { margin: 12px 0 14px; padding: 10px; border: 1px solid #D7E0E5; border-radius: 10px; background: #F8FBFE; }
           .legend { margin: 10px 0 14px; }
           @media print {
             body { margin: 10mm; }
@@ -1900,7 +1900,7 @@ export default function App() {
                 <div className="history-track-list">
                   {historyData.filteredEntries.map((entry) => {
                     const km = entry.track.kmStart && entry.track.kmEnd ? `${entry.track.kmStart} até ${entry.track.kmEnd}` : 'KM não informado'
-                    const classColor = CLASSIFICATION_COLORS[entry.analysis.classification] || '#7C93A8'
+                    const classColor = CLASSIFICATION_COLORS[entry.analysis.classification] || '#6F838E'
                     return (
                       <article key={entry.track.id} className="history-track-card">
                         <div className="history-track-head">
